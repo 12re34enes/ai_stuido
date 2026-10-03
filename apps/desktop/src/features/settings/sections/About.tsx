@@ -4,9 +4,8 @@ import { motion } from "motion/react";
 
 import { stagger, variants } from "@/motion/tokens";
 import { backendStatus, getShellStatus, isTauri, openNotificationSettings, revealInFinder } from "@/native";
-import { Badge, Button, IconButton, Skeleton } from "@/ui";
+import { Badge, Button, ErrorState, IconButton, KeyValueList, Section, Skeleton } from "@/ui";
 
-import { ErrorState, KeyValueList, Section } from "@/features/connections/kit";
 
 import { useSystem } from "../api";
 import { SectionPage } from "../kit";

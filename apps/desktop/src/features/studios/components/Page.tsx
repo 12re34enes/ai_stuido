@@ -1,7 +1,6 @@
 /** Page scaffolding shared by the studio pages: scroll container, back link, section header, error state. */
-import { ArrowLeft, CloudOff, RotateCw } from "lucide-react";
+import { CloudOff, RotateCw } from "lucide-react";
 import type { ReactNode, Ref } from "react";
-import { Link } from "react-router";
 
 import { ApiError } from "@/lib/api";
 import { isUnreachable } from "@/lib/connection";
@@ -17,17 +16,7 @@ export function Page({ children, className, wide, scrollRef }: { children: React
   );
 }
 
-export function BackLink({ to, children }: { to: string; children: ReactNode }) {
-  return (
-    <Link
-      to={to}
-      className="group -ml-1.5 inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-fg-muted outline-none transition-colors duration-150 hover:bg-surface-hover hover:text-fg focus-visible:shadow-[var(--focus-ring)]"
-    >
-      <ArrowLeft className="size-3.5 transition-transform duration-150 ease-out group-hover:-translate-x-0.5" aria-hidden />
-      {children}
-    </Link>
-  );
-}
+export { BackLink } from "@/ui";
 
 export function SectionHeader({ title, count, hint, actions, className, id }: { title: ReactNode; count?: number; hint?: ReactNode; actions?: ReactNode; className?: string; id?: string }) {
   return (

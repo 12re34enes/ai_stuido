@@ -9,10 +9,9 @@ import { relativeTime } from "@/i18n/format";
 import { commandGroups, useRegisterCommands, type StudioCommand } from "@/lib/commands";
 import { useCurrentWorkspace } from "@/lib/workspace";
 import { spring, transition, variants } from "@/motion/tokens";
-import { Badge, Button, Dialog, EmptyState, IconButton, Input, SegmentedControl, Select, Skeleton, Switch, Textarea, toast, type SelectOption } from "@/ui";
+import { Badge, Button, ConfirmDialog, Dialog, EmptyState, IconButton, Input, SegmentedControl, Select, type SelectOption, Skeleton, Switch, Textarea, toast } from "@/ui";
 
 import { useCreateSchedule, useDeleteSchedule, useFlows, useModes, useRunSchedule, useSchedules, useUpdateSchedule } from "../api";
-import { ConfirmDialog } from "../components/ConfirmDialog";
 import { builderToCron, COMMON_TIMEZONES, cronToBuilder, describeCron, localTimeZone, nextRuns, parseCron, type CronBuilder } from "../model/cron";
 import { modeLabels, s } from "../strings";
 import { errorText } from "../util";
@@ -390,7 +389,7 @@ export function SchedulesPage() {
         title={toDelete ? s.schedules.deleteTitle(toDelete.name) : ""}
         description={s.schedules.deleteBody}
         confirmLabel={s.delete}
-        destructive
+        tone="danger"
         onConfirm={() => void confirmDelete()}
       />
     </div>

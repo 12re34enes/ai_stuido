@@ -6,9 +6,8 @@ import { useNow } from "@/hooks/useNow";
 import { formatDateTime, relativeTime } from "@/i18n/format";
 import { stagger, variants } from "@/motion/tokens";
 import { isTauri, restartBackend, revealInFinder } from "@/native";
-import { Badge, Button, Checkbox, EmptyState, IconButton, Input, Select, Skeleton, toast } from "@/ui";
+import { Badge, Button, Callout, Checkbox, ConfirmDialog, EmptyState, errorMessage, ErrorState, IconButton, Input, Section, Select, SettingRow, Skeleton, toast } from "@/ui";
 
-import { Callout, ConfirmDialog, errorMessage, ErrorState, Section, SettingRow } from "@/features/connections/kit";
 
 import { useBackups, useBackupSettings, useCreateBackup, useRestoreBackup, useSaveBackupSettings } from "../api";
 import { CommitNumber, SectionPage } from "../kit";

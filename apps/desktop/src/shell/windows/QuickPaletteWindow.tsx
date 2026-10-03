@@ -16,9 +16,8 @@ import { useCurrentWorkspace } from "@/lib/workspace";
 import { useReducedMotionPref } from "@/motion/hooks";
 import { spring, transition, variants } from "@/motion/tokens";
 import { hideCurrentWindow, isTauri, onWindowShown, resizeCurrentWindow, showMainWindow, windowKind } from "@/native";
-import { cn, Kbd, Spinner } from "@/ui";
+import { cn, errorMessage, Kbd, Spinner } from "@/ui";
 
-import { errorMessage } from "@/features/connections/kit";
 
 import { featurePath } from "../route";
 import { shellStrings } from "../strings";

@@ -4,9 +4,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
 import { stagger, variants } from "@/motion/tokens";
-import { Badge, Button, cn, Field, Input, Select, Sheet, Switch, toast } from "@/ui";
+import { Badge, Button, Callout, cn, errorMessage, Field, Input, KEEP, type SecretDraft, SecretField, Select, Sheet, Switch, toast } from "@/ui";
 
-import { Callout, errorMessage, KEEP, SecretField, type SecretDraft } from "@/features/connections/kit";
 
 import { SAVE_CHANNEL_KEY, useChannelKinds, useSaveChannel } from "../api";
 import { channelPayload, channelValues, fieldMeta, hasErrors, validateChannel, visibleFields, type ChannelValues } from "../logic";

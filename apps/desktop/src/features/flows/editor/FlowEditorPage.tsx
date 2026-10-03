@@ -14,11 +14,10 @@ import { useRegisterCommands, type StudioCommand } from "@/lib/commands";
 import { readPref } from "@/lib/storage";
 import { useCurrentWorkspace } from "@/lib/workspace";
 import { spring, transition, variants } from "@/motion/tokens";
-import { Button, Dialog, EmptyState, Spinner, toast } from "@/ui";
+import { Button, ConfirmDialog, Dialog, EmptyState, Spinner, toast } from "@/ui";
 import { isTypingTarget, matchesShortcut } from "@/ui/shortcuts";
 
 import { fetchFlowVersion, fetchModeGraph, fetchStudio, useDeployProfiles, useFlow, useModes, useProfiles, useRepos, useUpdateFlow } from "../api";
-import { ConfirmDialog } from "../components/ConfirmDialog";
 import type { TemplatePick } from "../components/TemplateCards";
 import { kindInfo, normalizeSettings, PALETTE_GROUPS } from "../model/kinds";
 import { modeLabels, s } from "../strings";
@@ -453,7 +452,7 @@ function EditorScreen({ flowId, mode = null, studio = null, blank = false }: Flo
           title={s.editor.replaceTitle}
           description={s.editor.replaceBody}
           confirmLabel={s.editor.replace}
-          destructive
+          tone="danger"
           onConfirm={() => {
             const p = pendingPick;
             setPendingPick(null);
@@ -469,6 +468,7 @@ function EditorScreen({ flowId, mode = null, studio = null, blank = false }: Flo
           title={restoreAsk !== null ? s.editor.restoreConfirmTitle(restoreAsk) : ""}
           description={s.editor.restoreConfirmBody}
           confirmLabel={s.versions.restore}
+          tone="primary"
           loading={restoring}
           onConfirm={() => restoreAsk !== null && void restore(restoreAsk)}
         />
@@ -480,7 +480,7 @@ function EditorScreen({ flowId, mode = null, studio = null, blank = false }: Flo
           description={s.editor.leaveBody}
           confirmLabel={s.editor.leave}
           cancelLabel={s.editor.stay}
-          destructive
+          tone="danger"
           onConfirm={() => blocker.state === "blocked" && blocker.proceed()}
         />
       </EditorActionsContext.Provider>

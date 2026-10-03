@@ -7,9 +7,8 @@ import { features } from "@/app/routes";
 import { useSettings, useUpdateSetting } from "@/lib/queries";
 import { variants } from "@/motion/tokens";
 import { getShellStatus, isTauri, onGlobalShortcutError, setGlobalShortcut } from "@/native";
-import { Badge, Button, cn, Kbd, toast } from "@/ui";
+import { Badge, Button, Callout, cn, errorMessage, Kbd, Section, SettingRow, toast } from "@/ui";
 
-import { Callout, errorMessage, Section, SettingRow } from "@/features/connections/kit";
 
 import { SectionPage } from "../kit";
 import { acceleratorLabel, recordShortcut } from "../logic";

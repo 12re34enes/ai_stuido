@@ -3,7 +3,10 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
 import { variants } from "@/motion/tokens";
-import { Button, cn, Field, IconButton, Input } from "@/ui";
+import { Button } from "./Button";
+import { cn } from "./cn";
+import { IconButton } from "./IconButton";
+import { Field, Input } from "./Input";
 
 import { KEEP, type SecretDraft } from "./secret";
 

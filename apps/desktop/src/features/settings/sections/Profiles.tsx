@@ -5,9 +5,8 @@ import { useState } from "react";
 import { useSettings, useUpdateSetting } from "@/lib/queries";
 import type { Provider } from "@/lib/types";
 import { stagger, variants } from "@/motion/tokens";
-import { Badge, Button, cn, IconButton, Menu, MenuItem, MenuSeparator, ProviderMark, toast, Tooltip, uiStrings } from "@/ui";
+import { Badge, Button, cn, ConfirmDialog, errorMessage, ErrorState, IconButton, ListSkeleton, Menu, MenuItem, MenuSeparator, ProviderMark, Section, SettingRow, toast, Tooltip, uiStrings } from "@/ui";
 
-import { ConfirmDialog, errorMessage, ErrorState, ListSkeleton, Section, SettingRow } from "@/features/connections/kit";
 
 import { useDeleteProfile, useProfiles } from "../api";
 import { CommitNumber, SectionPage } from "../kit";

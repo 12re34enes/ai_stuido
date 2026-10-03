@@ -5,9 +5,8 @@ import { useState } from "react";
 import type { Severity } from "@/lib/types";
 import { useCurrentWorkspace } from "@/lib/workspace";
 import { spring, variants } from "@/motion/tokens";
-import { Button, Checkbox, cn, Field, IconButton, Input, SegmentedControl, Select, Sheet, Switch, toast } from "@/ui";
+import { Button, Callout, Checkbox, cn, errorMessage, Field, FormGroupLabel, IconButton, Input, SegmentedControl, Select, Sheet, Switch, toast } from "@/ui";
 
-import { Callout, errorMessage, FormGroupLabel } from "@/features/connections/kit";
 
 import { useSaveRule } from "../api";
 import { EVENT_TYPE_GROUPS, eventTypeLabel, isValidEventType, SEVERITY_LABEL } from "../logic";

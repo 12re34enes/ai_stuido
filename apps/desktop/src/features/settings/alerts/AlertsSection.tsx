@@ -3,9 +3,8 @@ import { motion } from "motion/react";
 import { useState } from "react";
 
 import { stagger, variants } from "@/motion/tokens";
-import { Badge, Button, cn, EmptyState, IconButton, Menu, MenuItem, MenuSeparator, Select, Skeleton, StatusDot, Switch, toast, Tooltip } from "@/ui";
+import { Badge, Button, cn, ConfirmDialog, EmptyState, errorMessage, ErrorState, IconButton, Menu, MenuItem, MenuSeparator, Section, Select, SettingRow, Skeleton, StatusDot, Switch, toast, Tooltip } from "@/ui";
 
-import { ConfirmDialog, errorMessage, ErrorState, Section, SettingRow } from "@/features/connections/kit";
 
 import { useAlertDefaults, useChannelKinds, useChannels, useDeleteChannel, useDeleteRule, useRules, useSaveChannel, useSaveRule, useTestChannel, useUpdateAlertSettings } from "../api";
 import { CommitNumber, SectionPage } from "../kit";

@@ -4,9 +4,8 @@ import { useMemo, useState } from "react";
 
 import { useNow } from "@/hooks/useNow";
 import { spring, variants } from "@/motion/tokens";
-import { Badge, Button, cn, Field, Input, Select, Skeleton, Switch, toast } from "@/ui";
+import { Badge, Button, cn, errorMessage, ErrorState, Field, Input, Section, Select, Skeleton, Switch, toast } from "@/ui";
 
-import { errorMessage, ErrorState, Section } from "@/features/connections/kit";
 
 import { useQuietHours, useSaveQuietHours } from "../api";
 import { DAY_SHORT, describeQuietHours, hasErrors, isQuietAt, validateQuietHours } from "../logic";

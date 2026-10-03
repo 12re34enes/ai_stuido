@@ -6,9 +6,8 @@ import { useNow } from "@/hooks/useNow";
 import { formatDuration } from "@/i18n/format";
 import { useEventStream } from "@/lib/events";
 import { spring, stagger, variants } from "@/motion/tokens";
-import { Button, CopyButton, Dialog, Spinner, toast } from "@/ui";
+import { Button, Callout, CopyButton, Dialog, errorMessage, Spinner, toast } from "@/ui";
 
-import { Callout, errorMessage } from "@/features/connections/kit";
 
 import { useLinkChannel } from "../api";
 import { setStrings as s } from "../strings";

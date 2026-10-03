@@ -1,10 +1,13 @@
-/** Loading / error / unavailable states with Turkish copy, shared by every list in the feature. */
+/** Loading / error / unavailable states with Turkish copy, shared by lists across features. */
 import { AlertTriangle, PlugZap, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 
 import { isMissingEndpoint } from "@/lib/connection";
 import { stagger, variants } from "@/motion/tokens";
-import { Button, cn, EmptyState, Skeleton } from "@/ui";
+import { Button } from "./Button";
+import { cn } from "./cn";
+import { EmptyState } from "./EmptyState";
+import { Skeleton } from "./Skeleton";
 
 import { errorMessage } from "./errors";
 

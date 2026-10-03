@@ -1,7 +1,6 @@
 /**
- * Page-level building blocks shared by the connections and settings pages: page header, back
- * link, titled sections with a card body, setting rows, key/value lists and callouts.
- * Candidates for promotion into `src/ui/`.
+ * Page-level building blocks: page header, back link, titled sections with a card body, setting
+ * rows, key/value lists, callouts and the centered page body.
  */
 import { AlertTriangle, CheckCircle2, ChevronLeft, Info, ShieldAlert, XCircle, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
@@ -9,7 +8,8 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 
 import { variants } from "@/motion/tokens";
-import { Card, cn } from "@/ui";
+import { Card } from "./Card";
+import { cn } from "./cn";
 
 export function PageHeader({
   title,
@@ -47,9 +47,9 @@ export function BackLink({ to, children }: { to: string; children: ReactNode }) 
   return (
     <Link
       to={to}
-      className="-ml-1 inline-flex w-fit items-center gap-0.5 rounded-md py-0.5 pr-1.5 pl-0.5 text-xs text-fg-muted outline-none transition-colors duration-150 hover:text-fg focus-visible:shadow-[var(--focus-ring)]"
+      className="group -ml-1.5 inline-flex h-7 w-fit items-center gap-0.5 rounded-md pr-2 pl-1 text-xs font-medium text-fg-muted outline-none transition-colors duration-150 hover:bg-surface-hover hover:text-fg focus-visible:shadow-[var(--focus-ring)]"
     >
-      <ChevronLeft className="size-3.5" aria-hidden />
+      <ChevronLeft className="size-3.5 transition-transform duration-150 ease-out group-hover:-translate-x-0.5" aria-hidden />
       {children}
     </Link>
   );
@@ -199,4 +199,9 @@ export function Callout({
 /** A centered max-width page body with the app's standard gutters. */
 export function PageBody({ children, className, wide }: { children: ReactNode; className?: string; wide?: boolean }) {
   return <div className={cn("mx-auto flex w-full flex-col gap-8 px-8 pt-8 pb-16", wide ? "max-w-[1240px]" : "max-w-[1080px]", className)}>{children}</div>;
+}
+
+/** Small uppercase label above a group of form fields. */
+export function FormGroupLabel({ children }: { children: string }) {
+  return <span className="text-2xs font-medium tracking-wide text-fg-faint uppercase">{children}</span>;
 }

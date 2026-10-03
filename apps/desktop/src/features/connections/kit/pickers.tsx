@@ -7,7 +7,7 @@ import { Field, SegmentedControl, Textarea } from "@/ui";
 
 import { connStrings as s } from "../strings";
 import type { PermissionLevel } from "../types";
-import { Callout } from "./layout";
+import { Callout } from "@/ui";
 
 const envIcons = { local: <Laptop />, test: <FlaskConical />, production: <ShieldAlert /> };
 
@@ -87,6 +87,3 @@ export function PermissionPicker({
 }
 
 /** Small uppercase group label inside forms. */
-export function FormGroupLabel({ children }: { children: string }) {
-  return <span className="text-2xs font-medium tracking-wide text-fg-faint uppercase">{children}</span>;
-}

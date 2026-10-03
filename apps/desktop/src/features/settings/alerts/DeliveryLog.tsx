@@ -4,9 +4,8 @@ import { useState } from "react";
 
 import { formatDateTime, formatTime } from "@/i18n/format";
 import { stagger, variants } from "@/motion/tokens";
-import { Badge, EmptyState, Select, Skeleton, Tooltip } from "@/ui";
+import { Badge, EmptyState, ErrorState, Section, Select, Skeleton, Tooltip } from "@/ui";
 
-import { ErrorState, Section } from "@/features/connections/kit";
 
 import { useDeliveryLog } from "../api";
 import { SEVERITY_LABEL, SEVERITY_TONE } from "../logic";

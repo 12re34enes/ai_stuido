@@ -10,10 +10,9 @@ import { commandGroups, useRegisterCommands, type StudioCommand } from "@/lib/co
 import { foldTurkish } from "@/lib/fuzzy";
 import { useCurrentWorkspace } from "@/lib/workspace";
 import { spring, stagger, transition } from "@/motion/tokens";
-import { Badge, Button, EmptyState, IconButton, Input, Menu, MenuItem, MenuSeparator, Skeleton, toast } from "@/ui";
+import { Badge, Button, ConfirmDialog, EmptyState, IconButton, Input, Menu, MenuItem, MenuSeparator, Skeleton, toast } from "@/ui";
 
 import { useCreateFlow, useDeleteFlow, useFlows, useModes } from "../api";
-import { ConfirmDialog } from "../components/ConfirmDialog";
 import { MiniGraph } from "../components/MiniGraph";
 import { BlankCard, ModeCard, type TemplatePick } from "../components/TemplateCards";
 import { s } from "../strings";
@@ -252,7 +251,7 @@ export function FlowsListPage() {
         title={toDelete ? s.deleteTitle(toDelete.name) : ""}
         description={s.deleteBody}
         confirmLabel={s.delete}
-        destructive
+        tone="danger"
         onConfirm={() => void confirmDelete()}
       />
     </div>

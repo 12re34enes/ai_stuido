@@ -3,9 +3,8 @@ import { useState } from "react";
 
 import type { AgentRole, Provider } from "@/lib/types";
 import { variants } from "@/motion/tokens";
-import { Button, Field, Input, ProviderMark, SegmentedControl, Select, Sheet, Switch, Textarea, toast, uiStrings } from "@/ui";
+import { Button, Callout, errorMessage, Field, FormGroupLabel, Input, ProviderMark, SegmentedControl, Select, Sheet, Switch, Textarea, toast, uiStrings } from "@/ui";
 
-import { Callout, errorMessage, FormGroupLabel } from "@/features/connections/kit";
 import { parseLines } from "@/features/connections/logic";
 
 import { useSaveProfile } from "../api";

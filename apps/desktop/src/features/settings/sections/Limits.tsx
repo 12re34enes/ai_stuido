@@ -6,10 +6,9 @@ import { relativeTime } from "@/i18n/format";
 import { useSettings, useUpdateSetting } from "@/lib/queries";
 import type { Provider } from "@/lib/types";
 import { stagger, variants } from "@/motion/tokens";
-import { Badge, Button, cn, EmptyState, LimitBar, ProviderMark, SegmentedControl, Select, Skeleton, toast, uiStrings } from "@/ui";
+import { Badge, Button, cn, EmptyState, errorMessage, ErrorState, LimitBar, ProviderMark, Section, SegmentedControl, Select, SettingRow, Skeleton, toast, uiStrings } from "@/ui";
 import { groupLimits } from "@/ui/limits";
 
-import { errorMessage, ErrorState, Section, SettingRow } from "@/features/connections/kit";
 
 import { useLimitsOverview, useRefreshLimits } from "../api";
 import { CommitNumber, SectionPage } from "../kit";

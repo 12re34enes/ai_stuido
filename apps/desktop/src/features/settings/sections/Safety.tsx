@@ -4,9 +4,8 @@ import { useState } from "react";
 
 import { useSettings, useUpdateSetting } from "@/lib/queries";
 import { stagger, variants } from "@/motion/tokens";
-import { Badge, Checkbox, Skeleton, Switch, toast } from "@/ui";
+import { Badge, Callout, Checkbox, ConfirmDialog, errorMessage, Section, Skeleton, Switch, toast } from "@/ui";
 
-import { Callout, ConfirmDialog, errorMessage, Section } from "@/features/connections/kit";
 
 import { SectionPage } from "../kit";
 import { setStrings as s } from "../strings";

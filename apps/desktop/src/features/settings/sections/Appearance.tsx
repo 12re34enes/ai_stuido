@@ -8,9 +8,8 @@ import { useUpdateSetting } from "@/lib/queries";
 import type { ReduceMotionPref, ThemePref } from "@/lib/types";
 import { spring } from "@/motion/tokens";
 import { setNativeTheme } from "@/native";
-import { cn, SegmentedControl } from "@/ui";
+import { cn, Section, SegmentedControl, SettingRow } from "@/ui";
 
-import { Section, SettingRow } from "@/features/connections/kit";
 
 import { SectionPage } from "../kit";
 import { setStrings as s } from "../strings";

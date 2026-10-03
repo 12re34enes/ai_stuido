@@ -3,10 +3,10 @@ import { motion } from "motion/react";
 import { useState } from "react";
 
 import { stagger, variants } from "@/motion/tokens";
-import { Badge, Button, cn, CodeBlock, EmptyState, ProviderMark, Select, Skeleton, uiStrings } from "@/ui";
+import { Badge, Button, cn, CodeBlock, EmptyState, ErrorState, ProviderMark, Section, Select, Skeleton, uiStrings } from "@/ui";
 
 import { useHosts } from "@/features/connections/api";
-import { EnvIcon, ErrorState, Section } from "@/features/connections/kit";
+import { EnvIcon } from "@/features/connections/kit";
 
 import { useHealth } from "../api";
 import { SectionPage } from "../kit";

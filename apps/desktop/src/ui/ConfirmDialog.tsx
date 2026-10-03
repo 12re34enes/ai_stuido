@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from "react";
 
-import { Button, Dialog, Input } from "@/ui";
+import { Button } from "./Button";
+import { Dialog } from "./Dialog";
+import { Input } from "./Input";
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -74,7 +76,7 @@ function ConfirmBody({
         <Button variant="ghost" onClick={() => onOpenChange(false)}>
           {cancelLabel}
         </Button>
-        <Button type="submit" variant={tone === "danger" ? "danger" : "primary"} loading={loading} disabled={blocked}>
+        <Button type="submit" variant={tone === "danger" ? "danger" : "primary"} loading={loading} disabled={blocked} data-testid="confirm">
           {confirmLabel}
         </Button>
       </div>

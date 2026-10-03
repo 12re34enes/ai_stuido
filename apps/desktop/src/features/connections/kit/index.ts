@@ -1,11 +1,29 @@
-/** Feature-level primitives shared by the connections and settings pages (and the popup windows). */
-export { BackLink, Callout, KeyValueList, PageBody, PageHeader, Section, SettingRow, type CalloutTone } from "./layout";
-export { ErrorState, ListSkeleton } from "./state";
-export { errorMessage } from "./errors";
-export { ConfirmDialog, type ConfirmDialogProps } from "./ConfirmDialog";
-export { SecretField, type SecretFieldProps } from "./SecretField";
-export { KEEP, secretPayload, type SecretDraft } from "./secret";
+/**
+ * Connection-specific primitives (targets, environments, permissions). The generic page scaffolding
+ * moved to "@/ui" and is re-exported here so feature imports stay short.
+ */
+export {
+  BackLink,
+  Callout,
+  ConfirmDialog,
+  errorMessage,
+  ErrorState,
+  FormGroupLabel,
+  KEEP,
+  KeyValueList,
+  ListSkeleton,
+  PageBody,
+  PageHeader,
+  SecretField,
+  secretPayload,
+  Section,
+  SettingRow,
+  type CalloutTone,
+  type ConfirmDialogProps,
+  type SecretDraft,
+  type SecretFieldProps,
+} from "@/ui";
 export { ClassBadge, EnvIcon, PermissionBadge, RunStatusBadge, TargetIcon } from "./badges";
 export { EnvGroups, TargetRow } from "./TargetRow";
 export { useDebounced, useScrollTopOnMount } from "./hooks";
-export { EnvironmentPicker, FormGroupLabel, PermissionPicker } from "./pickers";
+export { EnvironmentPicker, PermissionPicker } from "./pickers";
