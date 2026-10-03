@@ -1,0 +1,37 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Main window: every shell command, window chrome (drag region, minimize, zoom, hide) and event listening. No plugin JS APIs are exposed.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "allow-backend-info",
+    "allow-backend-status",
+    "allow-backend-restart",
+    "allow-notify",
+    "allow-notification-permission",
+    "allow-open-notification-settings",
+    "allow-set-notifications-paused",
+    "allow-set-tray-state",
+    "allow-get-shell-status",
+    "allow-set-global-shortcut",
+    "allow-show-main-window",
+    "allow-set-theme",
+    "allow-open-external",
+    "allow-reveal-in-finder",
+    "allow-open-in-editor",
+    "allow-detect-editors",
+    "allow-native-ready",
+    "allow-dismiss-window"
+  ]
+}

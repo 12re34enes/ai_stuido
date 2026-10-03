@@ -13,7 +13,9 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "gen:api": "openapi-typescript http://127.0.0.1:${AISTUDIO_PORT:-8765}/api/openapi.json -o src/lib/api-schema.d.ts",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "package:mac": "bash ../../scripts/package/build-macos-app.sh",
+    "icons": "bash ../../scripts/package/generate-icons.sh"
   },
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",

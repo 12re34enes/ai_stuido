@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36">
+  <!-- AI Studio menu bar icon (idle). Template icons are black + alpha; macOS tints them. -->
+  <g fill="none" stroke="#000000" stroke-linecap="round">
+    <path d="M18 8 L9.6 27.6 M18 8 L26.4 27.6" stroke-width="3.4"/>
+    <path d="M13.9 20.6 H22.1" stroke-width="2.8"/>
+  </g>
+  <path fill="#000000" fill-rule="evenodd" d="M18 3.2 a4.8 4.8 0 1 1 0 9.6 a4.8 4.8 0 1 1 0 -9.6 Z M18 6.2 a1.8 1.8 0 1 0 0 3.6 a1.8 1.8 0 1 0 0 -3.6 Z"/>
+  <circle cx="9.4" cy="28" r="3.9" fill="#000000"/>
+  <circle cx="26.6" cy="28" r="3.9" fill="#000000"/>
+</svg>

@@ -1,0 +1,23 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "popup-windows",
+  "description": "Menu bar popover (#/menubar) and quick palette (#/palette): talk to studiod, hand off to the main window, hide/resize themselves. No backend lifecycle, notifications, shortcut or filesystem commands.",
+  "windows": [
+    "menubar",
+    "palette"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-hide",
+    "core:window:allow-set-size",
+    "allow-backend-info",
+    "allow-backend-status",
+    "allow-get-shell-status",
+    "allow-show-main-window",
+    "allow-open-external",
+    "allow-set-notifications-paused",
+    "allow-set-tray-state",
+    "allow-dismiss-window"
+  ]
+}

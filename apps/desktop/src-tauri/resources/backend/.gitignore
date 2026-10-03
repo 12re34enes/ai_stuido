@@ -1,0 +1,4 @@
+# Filled by scripts/package/build-macos-app.sh (python-build-standalone + studiod).
+# Only this file is tracked; Tauri bundles the directory as Contents/Resources/backend/.
+*
+!.gitignore

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged by Tauri into the generated Info.plist. -->
+<plist version="1.0">
+<dict>
+  <!-- Approval notifications carry Onayla / Reddet / Aç buttons: default to persistent alerts
+       (users can switch to banners in System Settings › Notifications). -->
+  <key>NSUserNotificationAlertStyle</key>
+  <string>alert</string>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>tr</string>
+</dict>
+</plist>
