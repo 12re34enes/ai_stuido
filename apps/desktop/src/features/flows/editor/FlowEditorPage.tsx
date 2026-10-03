@@ -266,15 +266,19 @@ function EditorScreen({ flowId, mode = null, studio = null, blank = false }: Flo
 
   // ------------------------------------------------------------------ keyboard
   useEffect(() => {
+    // ⌘S is handled in the capture phase: it must work while typing, and on non-mac hosts the
+    // shell's ⌃⌘S (sidebar) matcher would otherwise swallow Ctrl+S first.
+    const onSave = (e: KeyboardEvent) => {
+      if (e.isComposing || !matchesShortcut(e, editorShortcuts.save)) return;
+      if ((e.target as HTMLElement | null)?.closest?.('[role="dialog"]')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void save();
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest?.('[role="dialog"],[role="menu"],[role="listbox"]')) return;
-      if (matchesShortcut(e, editorShortcuts.save)) {
-        e.preventDefault();
-        void save();
-        return;
-      }
       if (isTypingTarget(e.target)) return;
       const st = store.getState();
       const run = (fn: () => void) => {
@@ -302,8 +306,12 @@ function EditorScreen({ flowId, mode = null, studio = null, blank = false }: Flo
         }
       }
     };
+    window.addEventListener("keydown", onSave, { capture: true });
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onSave, { capture: true });
+      window.removeEventListener("keydown", onKey);
+    };
   }, [actions, save, store]);
 
   // ------------------------------------------------------------------ ⌘K commands

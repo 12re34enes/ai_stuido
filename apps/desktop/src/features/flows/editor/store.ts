@@ -151,7 +151,7 @@ export function createEditorStore() {
     /** Save the current state for undo (coalescing bursts with the same key, e.g. typing). */
     const commit = (key?: string) => {
       const s = get();
-      const now = Date.now();
+      const now = performance.now();
       if (key && s.commitKey === key && now - s.commitAt < COALESCE_MS) {
         set({ commitAt: now });
         return;

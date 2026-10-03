@@ -294,7 +294,8 @@ export function SchedulesPage() {
   const remove = useDeleteSchedule();
   const now = useNow(30_000);
   const [dialog, setDialog] = useState<{ open: boolean; schedule: Schedule | null; key: number }>({ open: false, schedule: null, key: 0 });
-  const openEditor = (schedule: Schedule | null) => setDialog({ open: true, schedule, key: Date.now() });
+  // Each open gets a fresh dialog instance (drafts never leak between schedules).
+  const openEditor = (schedule: Schedule | null) => setDialog((d) => ({ open: true, schedule, key: d.key + 1 }));
   const [toDelete, setToDelete] = useState<Schedule | null>(null);
   const flowNames = useMemo(() => new Map((flows.data ?? []).map((f) => [f.id, f.name])), [flows.data]);
   const list = useMemo(() => {
@@ -303,7 +304,7 @@ export function SchedulesPage() {
   }, [schedules.data]);
 
   const commands = useMemo<StudioCommand[]>(
-    () => [{ id: "flows.schedules.new", title: s.schedules.new, group: commandGroups.actions, icon: CalendarClock, order: 4, keywords: ["schedule", "cron", "zamanla"], run: () => setDialog({ open: true, schedule: null, key: Date.now() }) }],
+    () => [{ id: "flows.schedules.new", title: s.schedules.new, group: commandGroups.actions, icon: CalendarClock, order: 4, keywords: ["schedule", "cron", "zamanla"], run: () => setDialog((d) => ({ open: true, schedule: null, key: d.key + 1 })) }],
     [],
   );
   useRegisterCommands(commands);

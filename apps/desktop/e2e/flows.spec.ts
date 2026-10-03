@@ -526,7 +526,7 @@ test("drag a node from the palette onto the canvas", async ({ page }) => {
 test("inspector edits, undo/redo, delete, duplicate and keyboard", async ({ page }) => {
   const errors = collectErrors(page);
   await installMockApi(page);
-  await installFlowMock(page);
+  const m = await installFlowMock(page);
   await open(page, "/flows/flow_duo");
   await expect(page.getByTestId("flow-node-build")).toBeVisible();
 
@@ -583,6 +583,17 @@ test("inspector edits, undo/redo, delete, duplicate and keyboard", async ({ page
   await expect(prompt).not.toContainText("Testleri de yaz.");
   await page.getByRole("button", { name: "Yinele" }).click();
   await expect(prompt).toContainText("Testleri de yaz.");
+
+  // ⌘S saves a new version, even while typing in the editor.
+  await prompt.click();
+  await page.keyboard.press(`${mod}+s`);
+  await expect(page.getByTestId("save-state")).toHaveText(/Kaydedildi/);
+  await expect(page.getByTestId("flow-toolbar").getByText("v4", { exact: true })).toBeVisible();
+  expect(m.updates).toHaveLength(1);
+  const saved = m.updates[0]!.body as { graph: { nodes: Json[]; edges: Json[] } };
+  expect(saved.graph.nodes.map((n) => n.id)).toEqual(expect.arrayContaining(["son_onay", "agent", "agent_2"]));
+  // Redo re-applied only the gate-kind change (the command typing was undone separately).
+  expect(saved.graph.nodes.find((n) => n.id === "build")?.config).toMatchObject({ gate: "custom_command", command: null });
   expect(errors).toEqual([]);
 });
 
@@ -722,7 +733,7 @@ test("schedules: build a cron, create, toggle, run now, delete", async ({ page }
 
   await page.getByTestId("new-schedule").click();
   const form = page.getByTestId("schedule-form");
-  await form.getByRole("textbox", { name: "Ad" }).fill("Haftalık güvenlik taraması");
+  await form.getByRole("textbox", { name: "Ad", exact: true }).fill("Haftalık güvenlik taraması");
   await form.getByRole("textbox", { name: "Görev başlığı" }).fill("Güvenlik taraması");
   await form.getByRole("textbox", { name: "İstem" }).fill("Bağımlılıklardaki açıkları tara ve düzelt.");
   await form.getByRole("radio", { name: "Haftalık" }).click();
@@ -762,6 +773,46 @@ test("schedules: build a cron, create, toggle, run now, delete", async ({ page }
   await page.getByTestId("confirm").click();
   await expect(page.getByTestId("schedule-sch_1")).toHaveCount(0);
   expect(m.schedules.some((x) => x.id === "sch_1")).toBe(false);
+
+  // Edit: the dialog opens prefilled from the schedule (saved flow + weekly preset).
+  await expect(page.getByTestId("schedule-form")).toHaveCount(0);
+  await page.getByTestId("schedule-sch_2").getByRole("button", { name: "Zamanlamayı düzenle" }).click();
+  await expect(page.getByTestId("schedule-form")).toHaveCount(1);
+  const edit = page.getByTestId("schedule-form");
+  await expect(edit.getByRole("textbox", { name: "Ad", exact: true })).toHaveValue("Cuma sürüm notları");
+  await expect(edit.getByRole("radio", { name: "Kayıtlı akış" })).toHaveAttribute("aria-checked", "true");
+  await expect(edit.getByRole("radio", { name: "Haftalık" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("cron-description")).toHaveText("Her cuma 16:00");
+  await edit.getByRole("radio", { name: "Günlük" }).click();
+  await expect(page.getByTestId("cron-description")).toHaveText("Her gün 16:00");
+  await page.getByTestId("schedule-submit").click();
+  await expect(page.getByTestId("schedule-form")).toBeHidden();
+  expect(m.schedules.find((x) => x.id === "sch_2")).toMatchObject({ cron: "0 16 * * *", template: { flow_id: "flow_duo", mode: "custom" } });
+  await expect(page.getByTestId("schedule-sch_2").getByTestId("schedule-description")).toHaveText("Her gün 16:00");
+  expect(errors).toEqual([]);
+});
+
+test("flows list: duplicate and delete a flow", async ({ page }) => {
+  const errors = collectErrors(page);
+  await installMockApi(page);
+  const m = await installFlowMock(page);
+  await open(page, "/flows");
+  const card = page.getByTestId("flow-card-flow_race");
+  await card.hover();
+  await card.getByRole("button", { name: "Diğer" }).click();
+  await page.getByRole("menuitem", { name: "Kopyasını oluştur" }).click();
+  await expect(page.getByText("Kopya oluşturuldu")).toBeVisible();
+  expect(m.creates).toHaveLength(1);
+  expect(m.creates[0]).toMatchObject({ name: "Ödeme formu yarışı (kopya)", workspace_id: "ws_1" });
+  await expect(page.getByTestId("flow-card-flow_new1")).toBeVisible();
+
+  await card.hover();
+  await card.getByRole("button", { name: "Diğer" }).click();
+  await page.getByRole("menuitem", { name: "Sil" }).click();
+  await expect(page.getByRole("dialog", { name: /"Ödeme formu yarışı" silinsin mi\?/ })).toBeVisible();
+  await page.getByTestId("confirm").click();
+  await expect(page.getByTestId("flow-card-flow_race")).toHaveCount(0);
+  expect(m.deletedFlows).toEqual(["flow_race"]);
   expect(errors).toEqual([]);
 });
 
