@@ -24,6 +24,10 @@ class ServiceRegistry:
             raise RuntimeError(f"service {key.__name__} registered twice")
         self._items[key] = impl
 
+    def replace[T](self, key: type[T], impl: T) -> None:
+        """Swap an implementation (tests: substitute a fake for a real module's service)."""
+        self._items[key] = impl
+
     def get[T](self, key: type[T]) -> T:
         try:
             return cast(T, self._items[key])

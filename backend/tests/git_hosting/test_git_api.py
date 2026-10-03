@@ -25,7 +25,7 @@ def api(app_ctx: AppCtx, git_repo: Path) -> Any:
     ws = client.post("/api/workspaces", json={"name": "Ödeme"}).json()
     repo = client.post(f"/api/workspaces/{ws['id']}/repos", json={"path": str(git_repo)}).json()
     engine = FakeEngine(clock=utcnow)
-    ctx.services.register(FlowEngine, engine)  # type: ignore[type-abstract]
+    ctx.services.replace(FlowEngine, engine)  # type: ignore[type-abstract]
     with respx.mock(assert_all_called=False) as mock:
         mock.get(f"{API}/user").respond(200, json={"login": "octo"}, headers={"x-oauth-scopes": "repo"})
         yield client, ctx, repo, engine, mock
