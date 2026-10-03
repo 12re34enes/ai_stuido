@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# Rust / Tauri
+target/
+apps/desktop/src-tauri/gen/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local runtime data
+.aistudio-dev/
+*.db
+*.db-wal
+*.db-shm
+scripts/verify/out/

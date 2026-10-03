@@ -1,0 +1,146 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Expose tokens as Tailwind theme values: bg-canvas, text-fg-muted, border-line, bg-claude-soft ... */
+@theme inline {
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-canvas: var(--canvas);
+  --color-canvas-subtle: var(--canvas-subtle);
+  --color-sidebar: var(--sidebar);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+  --color-fg-on-accent: var(--fg-on-accent);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-env-local: var(--env-local);
+  --color-env-test: var(--env-test);
+  --color-env-production: var(--env-production);
+  --color-claude: var(--claude);
+  --color-claude-strong: var(--claude-strong);
+  --color-claude-soft: var(--claude-soft);
+  --color-claude-surface: var(--claude-surface);
+  --color-claude-line: var(--claude-line);
+  --color-codex: var(--codex);
+  --color-codex-strong: var(--codex-strong);
+  --color-codex-soft: var(--codex-soft);
+  --color-codex-surface: var(--codex-surface);
+  --color-codex-line: var(--codex-line);
+
+  --text-2xs: var(--text-2xs);
+  --text-xs: var(--text-xs);
+  --text-sm: var(--text-sm);
+  --text-base: var(--text-base);
+  --text-md: var(--text-md);
+  --text-lg: var(--text-lg);
+  --text-xl: var(--text-xl);
+  --text-2xl: var(--text-2xl);
+
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+
+  --ease-out-studio: var(--ease-out);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "calt";
+  }
+
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: default;
+  }
+
+  /* Text the user may want to copy stays selectable. */
+  p,
+  pre,
+  code,
+  input,
+  textarea,
+  [data-selectable] {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: -0.012em;
+  }
+
+  code,
+  pre,
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+  }
+
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  /* Native-feeling thin scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

@@ -1,0 +1,188 @@
+/*
+ * AI Studio design tokens.
+ *
+ * Shell: Claude-inspired warm neutrals with a restrained terracotta accent.
+ * Agents carry their provider's language: --claude-* (warm, coral) and --codex-* (monochrome).
+ * Colors are approximations, not official brand assets.
+ *
+ * Theme selection: system by default; html[data-theme="light"|"dark"] forces one.
+ * Never hardcode colors in components — use these tokens (via Tailwind theme names).
+ */
+
+:root {
+  /* Typography: Apple system fonts (New York serif headings, SF Pro text, SF Mono code). */
+  --font-serif: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, monospace;
+
+  --text-2xs: 0.6875rem; /* 11 */
+  --text-xs: 0.75rem; /* 12 */
+  --text-sm: 0.8125rem; /* 13 — default UI size on macOS */
+  --text-base: 0.875rem; /* 14 */
+  --text-md: 1rem; /* 16 */
+  --text-lg: 1.25rem; /* 20 */
+  --text-xl: 1.625rem; /* 26 */
+  --text-2xl: 2.125rem; /* 34 */
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* Layout */
+  --sidebar-width: 232px;
+  --sidebar-collapsed: 60px;
+  --topbar-height: 44px;
+  --drawer-width: 480px;
+
+  /* Motion (mirrors src/motion/tokens.ts for CSS-only transitions) */
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 150ms;
+  --dur-standard: 260ms;
+  --dur-page: 400ms;
+
+  color-scheme: light;
+
+  /* ---------------------------------------------------------------- light */
+  --canvas: #faf9f5;
+  --canvas-subtle: #f4f2ec;
+  --sidebar: rgba(244, 242, 236, 0.72);
+  --surface: #ffffff;
+  --surface-hover: #f7f5f0;
+  --surface-sunken: #f0ede5;
+  --line: #e7e3d9;
+  --line-strong: #d6d0c3;
+  --fg: #1f1e1b;
+  --fg-muted: #6b665c;
+  --fg-faint: #9c968a;
+  --fg-on-accent: #ffffff;
+
+  --accent: #c96442;
+  --accent-hover: #b5573a;
+  --accent-soft: #f5e4dc;
+  --accent-ring: rgba(201, 100, 66, 0.35);
+
+  --success: #3d8a57;
+  --success-soft: #e3f1e7;
+  --warning: #b9801f;
+  --warning-soft: #f8edd8;
+  --danger: #c0392b;
+  --danger-soft: #f9e2df;
+  --info: #3f6db0;
+  --info-soft: #e2eaf6;
+
+  --env-local: #8a8578;
+  --env-test: #c88a1e;
+  --env-production: #d0352b;
+
+  --claude: #d97757;
+  --claude-strong: #c15f3c;
+  --claude-soft: #f8e8e0;
+  --claude-surface: #fffaf6;
+  --claude-line: #efd9cd;
+
+  --codex: #0d0d0d;
+  --codex-strong: #000000;
+  --codex-soft: #ececec;
+  --codex-surface: #ffffff;
+  --codex-line: #dcdcdc;
+
+  --shadow-1: 0 1px 2px rgba(31, 30, 27, 0.06), 0 0 0 1px rgba(31, 30, 27, 0.04);
+  --shadow-2: 0 6px 20px rgba(31, 30, 27, 0.08), 0 1px 3px rgba(31, 30, 27, 0.06), 0 0 0 1px rgba(31, 30, 27, 0.05);
+  --shadow-3: 0 24px 64px rgba(31, 30, 27, 0.16), 0 4px 12px rgba(31, 30, 27, 0.08), 0 0 0 1px rgba(31, 30, 27, 0.06);
+  --focus-ring: 0 0 0 3px var(--accent-ring);
+}
+
+/* ------------------------------------------------------------------ dark */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --canvas: #1d1c1a;
+    --canvas-subtle: #232220;
+    --sidebar: rgba(35, 34, 32, 0.7);
+    --surface: #282725;
+    --surface-hover: #2f2e2b;
+    --surface-sunken: #1a1917;
+    --line: #36342f;
+    --line-strong: #4a4740;
+    --fg: #eeebe3;
+    --fg-muted: #a9a499;
+    --fg-faint: #78746b;
+    --fg-on-accent: #ffffff;
+    --accent: #d97757;
+    --accent-hover: #e48a6b;
+    --accent-soft: #3d2a22;
+    --accent-ring: rgba(217, 119, 87, 0.4);
+    --success: #5fb27c;
+    --success-soft: #1f3327;
+    --warning: #e0a63f;
+    --warning-soft: #3a2f1b;
+    --danger: #e5604f;
+    --danger-soft: #3d221e;
+    --info: #6f98d6;
+    --info-soft: #1e2a3d;
+    --env-local: #8a8578;
+    --env-test: #e3a33a;
+    --env-production: #ef4a3c;
+    --claude: #e08a6c;
+    --claude-strong: #f09a7c;
+    --claude-soft: #3a2721;
+    --claude-surface: #2a2522;
+    --claude-line: #4a3830;
+    --codex: #f2f2f2;
+    --codex-strong: #ffffff;
+    --codex-soft: #2c2c2c;
+    --codex-surface: #121212;
+    --codex-line: #333333;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --shadow-3: 0 28px 72px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.07);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #1d1c1a;
+  --canvas-subtle: #232220;
+  --sidebar: rgba(35, 34, 32, 0.7);
+  --surface: #282725;
+  --surface-hover: #2f2e2b;
+  --surface-sunken: #1a1917;
+  --line: #36342f;
+  --line-strong: #4a4740;
+  --fg: #eeebe3;
+  --fg-muted: #a9a499;
+  --fg-faint: #78746b;
+  --fg-on-accent: #ffffff;
+  --accent: #d97757;
+  --accent-hover: #e48a6b;
+  --accent-soft: #3d2a22;
+  --accent-ring: rgba(217, 119, 87, 0.4);
+  --success: #5fb27c;
+  --success-soft: #1f3327;
+  --warning: #e0a63f;
+  --warning-soft: #3a2f1b;
+  --danger: #e5604f;
+  --danger-soft: #3d221e;
+  --info: #6f98d6;
+  --info-soft: #1e2a3d;
+  --env-local: #8a8578;
+  --env-test: #e3a33a;
+  --env-production: #ef4a3c;
+  --claude: #e08a6c;
+  --claude-strong: #f09a7c;
+  --claude-soft: #3a2721;
+  --claude-surface: #2a2522;
+  --claude-line: #4a3830;
+  --codex: #f2f2f2;
+  --codex-strong: #ffffff;
+  --codex-soft: #2c2c2c;
+  --codex-surface: #121212;
+  --codex-line: #333333;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-3: 0 28px 72px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.07);
+}

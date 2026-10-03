@@ -1,0 +1,12 @@
+{
+  "name": "ai-studio",
+  "private": true,
+  "packageManager": "pnpm@10.18.0",
+  "scripts": {
+    "dev": "pnpm --filter desktop dev",
+    "build": "pnpm --filter desktop build",
+    "test": "pnpm --filter desktop test",
+    "lint": "pnpm --filter desktop lint",
+    "typecheck": "pnpm --filter desktop typecheck"
+  }
+}
