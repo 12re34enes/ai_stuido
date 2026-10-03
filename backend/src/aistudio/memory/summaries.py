@@ -265,3 +265,93 @@ def build_session_summary(
         lines += [f"- {e}" for e in dict.fromkeys(errors)][:_MAX_ERRORS]
 
     return summary_path(session_id, ended), "\n".join(lines).rstrip() + "\n"
+
+
+# --------------------------------------------------------------------------- task summaries
+
+GATE_LABELS: dict[str, str] = {
+    "plan_approval": "Plan onayı",
+    "boundary_check": "Sınır denetimi",
+    "build_test": "Build/test kanıtı",
+    "cross_review": "Çapraz inceleme",
+    "user_final": "Son onay",
+    "deploy_approval": "Deploy onayı",
+    "custom_command": "Özel komut",
+}
+GATE_STATUS_LABELS: dict[str, str] = {"gate.passed": "geçti", "gate.failed": "geçemedi", "gate.skipped": "atlandı"}
+
+
+def task_summary_path(task_id: str, title: str, ended_at: datetime) -> str:
+    day = ended_at.astimezone().strftime("%Y-%m-%d")
+    slug = slugify(title, max_len=40, fallback="gorev")
+    return f"sessions/{day}-gorev-{slug}-{task_id[-6:].lower()}.md"
+
+
+def build_task_summary(
+    task_id: str,
+    title: str,
+    events: list[Event],
+    *,
+    status: str,
+    mode: str | None = None,
+    quality_score: float | None = None,
+) -> tuple[str, str] | None:
+    """One summary per finished task (flow sessions don't get their own): request, gate results,
+    changed files, commands and usage across every agent of the task."""
+    if not events:
+        return None
+    c = _collect([e for e in events if e.type.startswith("agent.")])
+    ended = events[-1].ts
+    status_label = {"completed": "tamamlandı", "failed": "başarısız"}.get(status, status)
+    lines: list[str] = [f"# Görev özeti: {one_line(title, 120)}", ""]
+    lines.append(f"- **Görev:** `{task_id}`" + (f" — mod: {mode}" if mode else ""))
+    lines.append(f"- **Sonuç:** {status_label} ({ended.astimezone().strftime('%Y-%m-%d %H:%M')})")
+    if quality_score is not None:
+        lines.append(f"- **Kalite puanı:** {quality_score:.0f}/100")
+    sessions = sorted({e.session_id for e in events if e.session_id})
+    if sessions:
+        lines.append(f"- **Ajan oturumları:** {len(sessions)}")
+    if c.usage.any:
+        lines.append(f"- **Token:** giriş {fmt_int(c.usage.input_tokens)}, çıkış {fmt_int(c.usage.output_tokens)}")
+
+    if c.requests:
+        quoted = [f"> {ln}" if ln.strip() else ">" for ln in _clip(c.requests[0], _MAX_REQUEST).splitlines()]
+        lines += ["", "## İstek", "", *quoted]
+
+    gates = [e for e in events if e.type in GATE_STATUS_LABELS]
+    if gates:
+        lines += ["", "## Kapılar", ""]
+        for e in gates[-20:]:
+            kind = str(e.payload.get("gate") or "")
+            label = GATE_LABELS.get(kind, kind or "Kapı")
+            note = one_line(str(e.payload.get("summary") or ""), 160)
+            lines.append(f"- {label}: {GATE_STATUS_LABELS[e.type]}" + (f" — {note}" if note else ""))
+
+    result = _clip(c.final_text, _MAX_RESULT) if c.final_text else None
+    if result:
+        lines += ["", "## Son yanıt", "", result]
+
+    if c.files:
+        lines += ["", "## Değişen dosyalar", ""]
+        items = sorted(c.files.items())
+        lines += [f"- `{path}` ({CHANGE_LABELS.get(change, change)})" for path, change in items[:_MAX_FILES]]
+        if len(items) > _MAX_FILES:
+            lines.append(f"- … ve {len(items) - _MAX_FILES} dosya daha")
+
+    if c.commands:
+        lines += ["", "## Çalıştırılan komutlar", ""]
+        cmds = list(c.commands.values())
+        lines += [
+            f"- `{cmd.text}`" + (f" — çıkış kodu {cmd.exit_code}" if cmd.exit_code is not None else "")
+            for cmd in cmds[:_MAX_COMMANDS]
+        ]
+        if len(cmds) > _MAX_COMMANDS:
+            lines.append(f"- … ve {len(cmds) - _MAX_COMMANDS} komut daha")
+
+    failures = (str(e.payload["error"]) for e in events if e.type == "task.failed" and e.payload.get("error"))
+    flat = [*c.errors, *failures]
+    if flat:
+        lines += ["", "## Hatalar", ""]
+        lines += [f"- {e}" for e in dict.fromkeys(flat)][:_MAX_ERRORS]
+
+    return task_summary_path(task_id, title, ended), "\n".join(lines).rstrip() + "\n"

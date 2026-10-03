@@ -20,7 +20,7 @@ from aistudio.contracts.agents import (
     Usage,
 )
 from aistudio.core.events import EventFilter
-from aistudio.memory.service import SETTING_AUTO_SUMMARIES
+from aistudio.memory.service import SETTING_AUTO_SUMMARIES, MemoryProposalRecord
 from aistudio.memory.summaries import SessionMeta, build_session_summary, fmt_duration, fmt_int
 
 
@@ -144,3 +144,46 @@ async def test_session_without_activity_is_skipped(mem: MemEnv) -> None:
     await _emit(mem, "ses_idle", SessionEnded(reason="closed"))
     ended = await mem.ctx.events.query(EventFilter(session_id="ses_idle", types=["agent.session.ended"]))
     assert await mem.svc.summarize_session(ended[0]) is None
+
+
+async def test_flow_sessions_get_one_task_summary_instead_of_per_session(mem: MemEnv) -> None:
+    """Sessions that belong to a task produce no per-session proposal; the finished task produces
+    exactly one summary covering every agent and gate."""
+    mem.svc.start()
+    task_id = "task_01FLOWSUMMARY"
+
+    async def emit(session_id: str, payload: BaseModel) -> None:
+        await mem.ctx.events.append(
+            PAYLOAD_EVENT_TYPE[type(payload)],
+            payload.model_dump(mode="json"),
+            actor=f"agent:{session_id}",
+            workspace_id=mem.ws.id,
+            session_id=session_id,
+            task_id=task_id,
+        )
+
+    for sid, text in (("ses_writer", "Değişiklik yapıldı."), ("ses_reviewer", "Engelleyici sorun yok.")):
+        await emit(sid, SessionStarted(native_id=sid, model="m", cwd="/tmp/repo"))
+        await emit(sid, TurnStarted(turn_id="t1", input="README'yi güncelle"))
+        await emit(sid, FileChanged(path="README.md", change="modify"))
+        await emit(sid, TurnCompleted(turn_id="t1", status="success", result_text=text))
+        await emit(sid, SessionEnded(reason="completed", exit_code=0))
+    await mem.ctx.events.append(
+        "gate.passed", {"gate": "build_test", "summary": "1 komut geçti"}, workspace_id=mem.ws.id, task_id=task_id
+    )
+    await mem.ctx.events.append(
+        "task.completed", {"title": "README güncelle", "quality_score": 92}, workspace_id=mem.ws.id, task_id=task_id
+    )
+
+    async def one_proposal() -> list[MemoryProposalRecord] | None:
+        recs = await mem.svc.list_proposals(mem.ws.id)
+        return recs if recs and all(r.approval_id for r in recs) else None
+
+    recs = await eventually(one_proposal)
+    assert recs is not None and len(recs) == 1
+    rec = recs[0]
+    assert rec.source_session_id is None and rec.rationale == "Görev bittiği için otomatik oluşturulan özet."
+    assert rec.path.startswith("sessions/") and "gorev-readme-guncelle" in rec.path
+    assert rec.new_content.startswith("# Görev özeti: README güncelle")
+    assert "Build/test kanıtı: geçti" in rec.new_content and "`README.md`" in rec.new_content
+    assert "Kalite puanı:** 92/100" in rec.new_content

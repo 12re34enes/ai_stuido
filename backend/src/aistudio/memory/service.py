@@ -48,7 +48,7 @@ from aistudio.memory.context import DecisionEntry, SessionEntry, build_context
 from aistudio.memory.markdown import first_heading, first_paragraph_line, one_line, split_front_matter
 from aistudio.memory.repo import MemoryCommit, MemoryRepo, validate_rev
 from aistudio.memory.starter import STARTER_FILES
-from aistudio.memory.summaries import SessionMeta, build_session_summary
+from aistudio.memory.summaries import SessionMeta, build_session_summary, build_task_summary
 from aistudio.memory.tables import memory_proposals as proposals_t
 
 log = logging.getLogger(__name__)
@@ -64,6 +64,7 @@ LAYER_LABELS: dict[str, str] = {
 _LAYER_ORDER = {"facts": 0, "boundaries": 1, "decisions": 2, "sessions": 3}
 _DATE_PREFIX = re.compile(r"^(\d{4}-\d{2}-\d{2})")
 _SUMMARY_RATIONALE = "Oturum sona erdiği için otomatik oluşturulan özet."
+_TASK_SUMMARY_RATIONALE = "Görev bittiği için otomatik oluşturulan özet."
 _MAX_SESSION_EVENTS = 50_000
 
 
@@ -685,10 +686,10 @@ class MemoryServiceImpl:
                 task_id = task_id or rec.task_id
         if not workspace_id:
             return None
-        engine = self._ctx.services.maybe(FlowEngine)  # type: ignore[type-abstract]
-        if engine is not None and task_id:
-            with contextlib.suppress(Exception):
-                meta.task_title = (await engine.get_task(task_id)).title
+        if task_id:
+            # Flow sessions are summarized once per task (summarize_task), not per agent session:
+            # an İkili/Hat/Kurul run would otherwise ask for several approvals.
+            return None
         events = await self._session_events(session_id)
         built = build_session_summary(session_id, events, meta)
         if built is None:
@@ -713,6 +714,63 @@ class MemoryServiceImpl:
                 new_content=content,
                 rationale=_SUMMARY_RATIONALE,
                 source_session_id=session_id,
+                requested_by="system",
+            )
+        except ValidationFailed:
+            return None
+
+    async def summarize_task(self, ev: Event) -> MemoryProposal | None:
+        """Propose one summary for a finished task (``task.completed`` / ``task.failed``)."""
+        task_id = ev.task_id
+        workspace_id = ev.workspace_id
+        if not task_id or not workspace_id:
+            return None
+        title = str(ev.payload.get("title") or "Görev")
+        mode: str | None = None
+        engine = self._ctx.services.maybe(FlowEngine)  # type: ignore[type-abstract]
+        if engine is not None:
+            with contextlib.suppress(Exception):
+                task = await engine.get_task(task_id)
+                title, mode = task.title, task.mode.value
+        events: list[Event] = []
+        after = 0
+        flt = EventFilter(task_id=task_id)
+        while len(events) < _MAX_SESSION_EVENTS:
+            page = await self._ctx.events.query(flt, after_id=after, limit=2000)
+            events.extend(page)
+            if len(page) < 2000:
+                break
+            after = page[-1].id
+        status = "completed" if ev.type == "task.completed" else "failed"
+        score = ev.payload.get("quality_score")
+        built = build_task_summary(
+            task_id,
+            title,
+            events,
+            status=status,
+            mode=mode,
+            quality_score=float(score) if isinstance(score, int | float) else None,
+        )
+        if built is None:
+            return None
+        path, content = built
+        async with self._ctx.db.connect() as conn:
+            dup = (
+                await conn.execute(
+                    sa.select(proposals_t.c.id).where(
+                        proposals_t.c.workspace_id == workspace_id, proposals_t.c.path == path
+                    )
+                )
+            ).first()
+        if dup is not None:
+            return None
+        try:
+            return await self.propose(
+                workspace_id,
+                path=path,
+                new_content=content,
+                rationale=_TASK_SUMMARY_RATIONALE,
+                source_session_id=None,
                 requested_by="system",
             )
         except ValidationFailed:
@@ -744,7 +802,8 @@ class MemoryServiceImpl:
 
     async def _listen(self) -> None:
         flt = EventFilter(
-            types=["workspace.created", ET.AGENT_SESSION_ENDED, ET.APPROVAL_DECIDED], include_ephemeral=False
+            types=["workspace.created", ET.AGENT_SESSION_ENDED, ET.TASK_COMPLETED, ET.TASK_FAILED, ET.APPROVAL_DECIDED],
+            include_ephemeral=False,
         )
         while True:
             try:
@@ -762,6 +821,9 @@ class MemoryServiceImpl:
             elif ev.type == ET.AGENT_SESSION_ENDED:
                 if await self._ctx.store.get(SETTING_AUTO_SUMMARIES):
                     await self.summarize_session(ev)
+            elif ev.type in (ET.TASK_COMPLETED, ET.TASK_FAILED):
+                if await self._ctx.store.get(SETTING_AUTO_SUMMARIES):
+                    await self.summarize_task(ev)
             elif ev.type == ET.APPROVAL_DECIDED and ev.payload.get("kind") == ApprovalKind.memory.value:
                 approval = await self._approvals().get(str(ev.payload.get("approval_id")))
                 proposal_id = approval.payload.get("proposal_id")
