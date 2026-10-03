@@ -78,7 +78,11 @@ class Run(BaseModel):
     workspace_id: str
     graph: FlowGraph
     status: RunStatus
-    nodes: list[NodeRun] = Field(default_factory=list)
+    nodes: list[NodeRun] = Field(default_factory=list)  # history: every attempt of every node
+    # Current status per node id: the live executor state while the run is in memory, otherwise
+    # each node's latest attempt. After a loop-back the looped region is "pending" here even though
+    # ``nodes`` still holds the earlier (passed) attempts. UIs should render from this.
+    node_states: dict[str, NodeStatus] = Field(default_factory=dict)
     started_at: datetime
     finished_at: datetime | None = None
 

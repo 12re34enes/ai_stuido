@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from aistudio.contracts.agents import AgentProfile
 from aistudio.contracts.approvals import ApprovalStatus
 from aistudio.contracts.common import PROVIDERS, Provider
-from aistudio.contracts.engine import Run, Task, TaskCreate
+from aistudio.contracts.engine import NodeRun, NodeStatus, Run, Task, TaskCreate
 from aistudio.contracts.flows import (
     AdvisorNodeConfig,
     AgentNodeConfig,
@@ -487,12 +487,19 @@ class FlowEngineImpl:
         return await self.store.get_task(task_id)
 
     async def get_run(self, run_id: str) -> Run:
-        return await self.store.get_run(run_id)
+        return self._with_states(await self.store.get_run(run_id))
+
+    def _with_states(self, run: Run) -> Run:
+        ex = self.executors.get(run.id)
+        states = dict(ex.state.status) if ex is not None else latest_node_states(run.nodes)
+        for node in run.graph.nodes:  # nodes that never ran yet
+            states.setdefault(node.id, "pending")
+        return run.model_copy(update={"node_states": states})
 
     async def task_detail(self, task_id: str) -> TaskDetail:
         row = await self.store.task_row(task_id)
         task = task_from_row(row)
-        current = await self.store.get_run(task.current_run_id) if task.current_run_id else None
+        current = self._with_states(await self.store.get_run(task.current_run_id)) if task.current_run_id else None
         return TaskDetail(
             task=task,
             runs=await self.store.run_summaries(task_id),
@@ -777,3 +784,18 @@ class FlowEngineImpl:
     async def agent_stats(self, *, workspace_id: str | None = None, days: int | None = None) -> AgentStatsReport:
         since = utcnow() - timedelta(days=days) if days else None
         return await quality_mod.agent_stats(self.rt, workspace_id=workspace_id, since=since)
+
+
+def latest_node_states(nodes: list[NodeRun]) -> dict[str, NodeStatus]:
+    """Each node's status from its most recent attempt (highest attempt, then latest start)."""
+    floor = datetime.min.replace(tzinfo=UTC)
+
+    def order(nr: NodeRun) -> tuple[int, datetime]:
+        return nr.attempt, nr.started_at or nr.finished_at or floor
+
+    best: dict[str, NodeRun] = {}
+    for nr in nodes:
+        cur = best.get(nr.node_id)
+        if cur is None or order(nr) >= order(cur):
+            best[nr.node_id] = nr
+    return {nid: nr.status for nid, nr in best.items()}

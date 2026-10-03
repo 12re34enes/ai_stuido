@@ -128,6 +128,9 @@ def test_duo_task_end_to_end(app_ctx: tuple[TestClient, AppContext, str], git_re
     run_id = detail["task"]["current_run_id"]
     assert run_id, detail
 
+    run = client.get(f"/api/engine/runs/{run_id}").json()
+    assert run["node_states"] and set(run["node_states"].values()) <= {"passed", "skipped"}, run["node_states"]
+
     gates = client.get(f"/api/engine/runs/{run_id}/gates").json()
     statuses = {g["kind"]: g["status"] for g in gates}
     assert statuses.get("boundary_check") in ("passed", "skipped"), statuses
