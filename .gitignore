@@ -33,3 +33,6 @@ apps/desktop/src-tauri/gen/
 *.db-wal
 *.db-shm
 scripts/verify/out/
+
+# Agent worktrees (local only)
+.claude/worktrees/

@@ -1,0 +1,20 @@
+/** Shared Turkish UI strings. Feature-specific strings live in each feature's strings.ts. */
+export const common = {
+  appName: "AI Studio",
+  loading: "Yükleniyor…",
+  retry: "Tekrar dene",
+  cancel: "Vazgeç",
+  save: "Kaydet",
+  delete: "Sil",
+  edit: "Düzenle",
+  close: "Kapat",
+  approve: "Onayla",
+  reject: "Reddet",
+  open: "Aç",
+  search: "Ara",
+  empty: "Henüz bir şey yok.",
+  backendDown: "Motor (studiod) çalışmıyor. Birkaç saniye içinde yeniden bağlanılacak.",
+  environments: { local: "Yerel", test: "Test", production: "Production" },
+  providers: { claude: "Claude", codex: "Codex" },
+  severity: { info: "Bilgi", normal: "Normal", high: "Yüksek", critical: "Kritik" },
+} as const;

@@ -1,7 +1,6 @@
 /// <reference types="vitest/config" />
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -23,6 +22,7 @@ const devToken = process.env.AISTUDIO_DEV_TOKEN ?? "dev-token";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: { alias: { "@": resolve(import.meta.dirname, "src") } },
   clearScreen: false,
   server: {
     port: 1420,
