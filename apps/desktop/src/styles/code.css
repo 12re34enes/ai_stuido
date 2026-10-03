@@ -1,0 +1,63 @@
+/* Syntax token colors (classes from @lezer/highlight's classHighlighter), shared by CodeBlock,
+   DiffView and any CodeMirror editor. Colors come from tokens.css. */
+
+.tok-keyword,
+.tok-operatorKeyword,
+.tok-controlKeyword,
+.tok-modifier,
+.tok-heading {
+  color: var(--syntax-keyword);
+}
+.tok-heading,
+.tok-strong {
+  font-weight: 600;
+}
+.tok-emphasis {
+  font-style: italic;
+}
+.tok-string,
+.tok-string2,
+.tok-inserted,
+.tok-character {
+  color: var(--syntax-string);
+}
+.tok-number,
+.tok-bool,
+.tok-atom,
+.tok-literal {
+  color: var(--syntax-number);
+}
+.tok-comment,
+.tok-meta {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+.tok-variableName.tok-definition,
+.tok-function,
+.tok-macroName,
+.tok-labelName {
+  color: var(--syntax-function);
+}
+.tok-typeName,
+.tok-className,
+.tok-namespace {
+  color: var(--syntax-type);
+}
+.tok-propertyName,
+.tok-attributeName {
+  color: var(--syntax-property);
+}
+.tok-punctuation,
+.tok-operator {
+  color: var(--syntax-punctuation);
+}
+.tok-link,
+.tok-url {
+  color: var(--syntax-function);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.tok-deleted,
+.tok-invalid {
+  color: var(--danger);
+}

@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-// jsdom lacks these; Motion and virtualized lists touch them.
+// jsdom lacks these; Motion, Radix, cmdk and virtualized lists touch them.
 class ResizeObserverStub {
   observe() {}
   unobserve() {}
@@ -21,3 +21,9 @@ if (!window.matchMedia) {
       dispatchEvent: () => false,
     }) as MediaQueryList;
 }
+
+Element.prototype.scrollIntoView ??= function scrollIntoView() {};
+Element.prototype.scrollTo ??= function scrollTo() {};
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.setPointerCapture ??= () => {};
+Element.prototype.releasePointerCapture ??= () => {};

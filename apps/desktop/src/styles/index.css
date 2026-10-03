@@ -1,5 +1,19 @@
 @import "tailwindcss";
 @import "./tokens.css";
+@import "./code.css";
+@import "./flow.css";
+
+/* Scoped dark variant: `dark:` follows the nearest data-theme (or the system when none is set). */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *):not(:where([data-theme="light"], [data-theme="light"] *)) {
+      @slot;
+    }
+  }
+}
 
 /* Expose tokens as Tailwind theme values: bg-canvas, text-fg-muted, border-line, bg-claude-soft ... */
 @theme inline {
@@ -13,15 +27,21 @@
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
   --color-surface-sunken: var(--surface-sunken);
+  --color-surface-raised: var(--surface-raised);
   --color-line: var(--line);
+  --color-line-subtle: var(--line-subtle);
   --color-line-strong: var(--line-strong);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-fg-faint: var(--fg-faint);
   --color-fg-on-accent: var(--fg-on-accent);
+  --color-overlay: var(--overlay);
+  --color-tooltip: var(--tooltip-bg);
+  --color-tooltip-fg: var(--tooltip-fg);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-ring: var(--accent-ring);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
@@ -30,9 +50,13 @@
   --color-danger-soft: var(--danger-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  --color-limit-ok: var(--limit-ok);
   --color-env-local: var(--env-local);
+  --color-env-local-soft: var(--env-local-soft);
   --color-env-test: var(--env-test);
+  --color-env-test-soft: var(--env-test-soft);
   --color-env-production: var(--env-production);
+  --color-env-production-soft: var(--env-production-soft);
   --color-claude: var(--claude);
   --color-claude-strong: var(--claude-strong);
   --color-claude-soft: var(--claude-soft);
@@ -43,15 +67,24 @@
   --color-codex-soft: var(--codex-soft);
   --color-codex-surface: var(--codex-surface);
   --color-codex-line: var(--codex-line);
+  --color-code: var(--code-bg);
 
   --text-2xs: var(--text-2xs);
+  --text-2xs--line-height: var(--text-2xs-lh);
   --text-xs: var(--text-xs);
+  --text-xs--line-height: var(--text-xs-lh);
   --text-sm: var(--text-sm);
+  --text-sm--line-height: var(--text-sm-lh);
   --text-base: var(--text-base);
+  --text-base--line-height: var(--text-base-lh);
   --text-md: var(--text-md);
+  --text-md--line-height: var(--text-md-lh);
   --text-lg: var(--text-lg);
+  --text-lg--line-height: var(--text-lg-lh);
   --text-xl: var(--text-xl);
+  --text-xl--line-height: var(--text-xl-lh);
   --text-2xl: var(--text-2xl);
+  --text-2xl--line-height: var(--text-2xl-lh);
 
   --radius-xs: var(--radius-xs);
   --radius-sm: var(--radius-sm);
@@ -78,6 +111,7 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     font-feature-settings: "kern", "liga", "calt";
+    background: var(--canvas);
   }
 
   body {
@@ -86,11 +120,16 @@
     color: var(--fg);
     font-family: var(--font-sans);
     font-size: var(--text-sm);
-    line-height: 1.5;
+    line-height: var(--text-sm-lh);
     overscroll-behavior: none;
     user-select: none;
     -webkit-user-select: none;
     cursor: default;
+  }
+
+  /* Scoped themes (gallery) repaint their own subtree. */
+  [data-theme] {
+    color: var(--fg);
   }
 
   /* Text the user may want to copy stays selectable. */
@@ -117,7 +156,10 @@
   pre,
   kbd {
     font-family: var(--font-mono);
-    font-size: 0.92em;
+  }
+
+  button {
+    cursor: default;
   }
 
   :focus-visible {
@@ -129,6 +171,10 @@
     background: var(--accent-soft);
   }
 
+  ::placeholder {
+    color: var(--fg-faint);
+  }
+
   /* Native-feeling thin scrollbars */
   * {
     scrollbar-width: thin;
@@ -136,11 +182,142 @@
   }
 }
 
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Tauri: drag the window from chrome areas. Interactive children opt out automatically. */
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Soft fade at the edges of horizontally scrolling rows. */
+  .mask-fade-x {
+    mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+  }
+}
+
+/* ------------------------------------------------------------------ keyframes
+   CSS-driven loops (GPU: transform/opacity only). JS springs live in src/motion/tokens.ts. */
+
+@keyframes studio-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes studio-pulse-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.55;
+  }
+  80%,
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+@keyframes studio-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes studio-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.012);
+  }
+}
+
+@keyframes studio-indeterminate {
+  0% {
+    transform: translateX(-100%) scaleX(0.5);
+  }
+  50% {
+    transform: translateX(40%) scaleX(0.8);
+  }
+  100% {
+    transform: translateX(200%) scaleX(0.5);
+  }
+}
+
+@keyframes studio-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes studio-dash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+/* ------------------------------------------------------------------ native vibrancy
+   The Tauri shell sets <html data-window="main|menubar|palette" data-vibrancy> when the window
+   is transparent over a macOS material. The material shows through the sidebar and the small
+   popup windows; the main content area keeps its opaque canvas. (Unlayered: beats utilities.) */
+html[data-vibrancy],
+html[data-vibrancy] body {
+  background: transparent;
+}
+html[data-vibrancy] [data-sidebar] {
+  background-color: var(--sidebar-vibrancy);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-vibrancy] [data-window-surface] {
+  background-color: var(--window-vibrancy);
+}
+
+/* Theme switches are instant: suppress transitions for the switching frame. */
+html[data-theme-switching] *,
+html[data-theme-switching] *::before,
+html[data-theme-switching] *::after {
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
   }
+}
+
+/* appearance.reduce_motion = "on" (app setting) behaves like the system preference. */
+html[data-reduce-motion="on"] *,
+html[data-reduce-motion="on"] *::before,
+html[data-reduce-motion="on"] *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
 }
