@@ -37,7 +37,7 @@ import { spring, variants } from "@/motion/tokens";
 import { Badge, Button, cn, EnvBadge, Input, isTypingTarget, Kbd, MarkdownView, Textarea, toast } from "@/ui";
 
 import { InlineCode } from "../sessions/kit/InlineCode";
-import { useDecide, type ApprovalRecord } from "./api";
+import { useDecide, useTaskTitle, type ApprovalRecord } from "./api";
 import { KindDetail } from "./details";
 import { blockReason, decisionPayload, initialDraft, primaryLabel, type Draft } from "./draft";
 import { actorOf, approvalEnvironment, customPayload } from "./payload";
@@ -470,6 +470,15 @@ function Meta({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function TaskLink({ taskId }: { taskId: string }) {
+  const title = useTaskTitle(taskId).data;
+  return (
+    <Link className={cn("hover:text-fg hover:underline", title ? "max-w-[36ch] truncate" : "font-mono text-2xs")} to={`/tasks/${taskId}`} title={taskId}>
+      {title ?? taskId}
+    </Link>
+  );
+}
+
 function FullCard({ approval, d, scope, className }: { approval: ApprovalRecord; d: Decision; scope: Scope; className?: string }) {
   const now = useNow(30_000);
   const noteRef = useRef<HTMLInputElement>(null);
@@ -507,9 +516,7 @@ function FullCard({ approval, d, scope, className }: { approval: ApprovalRecord;
             </Meta>
             {approval.task_id && (
               <Meta label={s.meta.task}>
-                <Link className="font-mono text-2xs hover:text-fg hover:underline" to={`/tasks/${approval.task_id}`}>
-                  {approval.task_id}
-                </Link>
+                <TaskLink taskId={approval.task_id} />
               </Meta>
             )}
             <Meta label={s.meta.created}>

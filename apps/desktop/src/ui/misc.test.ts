@@ -1,5 +1,5 @@
 import { agentDotStatus, isAgentBusy } from "./agentStatus";
-import { diffStats } from "./code/diffStats";
+import { diffStats, wholeFileKind } from "./code/diffStats";
 import { numberColumns } from "./numbers";
 import { textareaHeight } from "./textareaSize";
 
@@ -45,5 +45,14 @@ describe("agentDotStatus", () => {
     expect(agentDotStatus("interrupted")).toBe("offline");
     expect(isAgentBusy("responding")).toBe(true);
     expect(isAgentBusy("done")).toBe(false);
+  });
+});
+
+describe("wholeFileKind", () => {
+  it("detects created and deleted files", () => {
+    expect(wholeFileKind("", "a\nb")).toBe("added");
+    expect(wholeFileKind("a", "")).toBe("removed");
+    expect(wholeFileKind("a", "b")).toBeNull();
+    expect(wholeFileKind("", "")).toBeNull();
   });
 });

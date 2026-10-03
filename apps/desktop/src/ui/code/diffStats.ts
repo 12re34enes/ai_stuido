@@ -42,3 +42,11 @@ export function diffStats(original: string, modified: string, guard = 1500): { a
   const lcs = prev[y.length] ?? 0;
   return { added: y.length - lcs, removed: x.length - lcs };
 }
+
+/** A diff where one side is empty: the file was created or deleted. */
+export function wholeFileKind(original: string, modified: string): "added" | "removed" | null {
+  if (original === modified) return null;
+  if (original === "") return "added";
+  if (modified === "") return "removed";
+  return null;
+}

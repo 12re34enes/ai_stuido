@@ -131,7 +131,8 @@ function DeployDetail({ profile }: { profile: DeployProfile }) {
   const Icon = deployKindIcon[profile.kind];
 
   return (
-    <PageBody wide>
+    // Wide only for the run list + log split, so an unused profile lines up with the other details.
+    <PageBody wide={runList.length > 0}>
       <PageHeader
         back={<BackLink to="/connections/deploy">{s.tabs.deploy}</BackLink>}
         title={

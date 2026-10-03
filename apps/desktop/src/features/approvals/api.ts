@@ -66,6 +66,18 @@ export function useApproval(id: string | undefined) {
   });
 }
 
+/** The title of the task an approval belongs to (the header shows it instead of the raw id). */
+export function useTaskTitle(taskId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["approvals", "task-title", taskId ?? ""] as const,
+    queryFn: () => api.get<{ task: { title: string } }>(`/engine/tasks/${encodeURIComponent(taskId ?? "")}`),
+    select: (d) => d.task.title,
+    enabled: Boolean(taskId),
+    retry: quietRetry,
+    staleTime: 5 * 60_000,
+  });
+}
+
 function findCached(qc: QueryClient, id: string | undefined): ApprovalRecord | undefined {
   if (!id) return undefined;
   return (
