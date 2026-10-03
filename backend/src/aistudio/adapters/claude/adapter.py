@@ -116,8 +116,16 @@ class ClaudeAdapter:
 
     # ------------------------------------------------------------------ environment / binary
 
-    def _local_env(self, extra: Mapping[str, str]) -> dict[str, str]:
-        base = self._base_env if self._base_env is not None else dict(os.environ)
+    def _local_env(self, extra: Mapping[str, str], transport: Transport | None = None) -> dict[str, str]:
+        # Prefer the transport's scrubbed base environment (LocalTransport.env: allowlist without
+        # SSH agent / cloud credentials); fall back to os.environ for bare test transports.
+        transport_env = getattr(transport, "env", None)
+        if self._base_env is not None:
+            base = dict(self._base_env)
+        elif isinstance(transport_env, Mapping):
+            base = dict(transport_env)
+        else:
+            base = dict(os.environ)
         env = scrub_env(base)
         env.update(extra)
         return env
@@ -129,7 +137,7 @@ class ClaudeAdapter:
         environment, adjusted through an ``env -u ... K=V`` prefix (POSIX on Linux and macOS)."""
         extra = dict(extra_env or {})
         if transport.kind == "local":
-            return argv, self._local_env(extra)
+            return argv, self._local_env(extra, transport)
         prefix = ["env"]
         for name in sorted(SCRUBBED_ENV):
             prefix += ["-u", name]

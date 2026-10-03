@@ -369,7 +369,10 @@ class CodexAdapter:
         if self._base_env is not None:
             base: dict[str, str] | None = dict(self._base_env)
         elif transport.kind == "local":
-            base = dict(os.environ)
+            # LocalTransport.env is the scrubbed allowlist environment (spec §8); bare transports
+            # (tests) fall back to os.environ.
+            transport_env = getattr(transport, "env", None)
+            base = dict(transport_env) if isinstance(transport_env, Mapping) else dict(os.environ)
         else:
             base = await _remote_env(transport)
         if base is None:

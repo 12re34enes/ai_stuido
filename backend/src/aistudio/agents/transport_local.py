@@ -40,8 +40,15 @@ _STDERR_DRAIN_GRACE = 2.0
 # --------------------------------------------------------------------------- environment
 
 _KEEP_EXACT = frozenset(
-    {"PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "TERM", "TMPDIR", "CLAUDE_CONFIG_DIR", "CODEX_HOME"}
-)
+    {
+        "PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "TERM", "COLORTERM", "TMPDIR",
+        "CLAUDE_CONFIG_DIR", "CODEX_HOME", "XDG_CONFIG_HOME",
+        # Corporate networks: proxies and custom CA bundles are needed for the CLIs to reach
+        # their APIs. Proxy URLs may embed credentials; command output is masked regardless.
+        "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "no_proxy",
+        "all_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR", "NODE_EXTRA_CA_CERTS", "REQUESTS_CA_BUNDLE",
+    }
+)  # fmt: skip
 _KEEP_PREFIXES = ("LC_",)
 
 _SENSITIVE_EXACT = frozenset(
