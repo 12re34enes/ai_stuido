@@ -38,8 +38,9 @@ describe("quick palette", () => {
   });
 
   it("cycles modes and derives task titles", () => {
-    expect(nextMode("council")).toBe("single");
-    expect(nextMode("single", -1)).toBe("council");
+    expect(nextMode("council")).toBe("team");
+    expect(nextMode("team")).toBe("single");
+    expect(nextMode("single", -1)).toBe("team");
     expect(taskTitle("  Kısa başlık\nayrıntı")).toBe("Kısa başlık");
     const long = "Kullanım limitlerini menü çubuğundaki halkalarda göster ve sıfırlanma geri sayımını ekle lütfen";
     expect(taskTitle(long).length).toBeLessThanOrEqual(81);

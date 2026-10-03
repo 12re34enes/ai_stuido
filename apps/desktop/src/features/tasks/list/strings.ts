@@ -24,6 +24,7 @@ export const taskStrings = {
     race: "Yarış",
     pipeline: "Hat",
     council: "Kurul",
+    team: "Ekip",
     custom: "Özel",
   } satisfies Record<FlowMode, string>,
   sources: {

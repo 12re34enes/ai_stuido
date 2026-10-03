@@ -1,5 +1,5 @@
 /** Task list filters, kept in the URL (`/tasks?status=running,waiting&mode=duo&source=user&q=…`). */
-import { MODES, TASK_SOURCES, TASK_STATUSES, type TaskSource, type TaskStatus } from "./types";
+import { FILTER_MODES, TASK_SOURCES, TASK_STATUSES, type TaskSource, type TaskStatus } from "./types";
 
 export type ListView = "list" | "queue";
 
@@ -23,7 +23,7 @@ export function parseFilters(params: URLSearchParams): TaskFilters {
   return {
     view: params.get("view") === "queue" ? "queue" : "list",
     statuses: [...new Set(statuses)],
-    mode: mode && ([...MODES, "custom"] as string[]).includes(mode) ? mode : null,
+    mode: mode && (FILTER_MODES as readonly string[]).includes(mode) ? mode : null,
     source: source && (TASK_SOURCES as readonly string[]).includes(source) ? (source as TaskSource) : null,
     q: params.get("q") ?? "",
   };

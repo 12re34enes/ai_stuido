@@ -10,7 +10,7 @@ import { Chip, ClearButton, PickerPopover, type PickerItem } from "../create/Pic
 import { hasActiveFilters, toggleStatus, type TaskFilters } from "./filters";
 import { modeLabel, sourceLabel, statusLabel, taskDot } from "./status";
 import { taskStrings as s } from "./strings";
-import { MODES, TASK_SOURCES, TASK_STATUSES } from "./types";
+import { FILTER_MODES, TASK_SOURCES, TASK_STATUSES } from "./types";
 
 export interface FilterBarProps {
   filters: TaskFilters;
@@ -36,7 +36,7 @@ export function FilterBar({ filters, onChange, searchRef }: FilterBarProps) {
     label: statusLabel(st),
     icon: <StatusDot status={taskDot(st)} size={10} label="" />,
   }));
-  const modeItems: PickerItem[] = [{ value: "", label: s.filters.all }, ...[...MODES, "custom" as const].map((m) => ({ value: m, label: modeLabel(m) }))];
+  const modeItems: PickerItem[] = [{ value: "", label: s.filters.all }, ...FILTER_MODES.map((m) => ({ value: m, label: modeLabel(m) }))];
   const sourceItems: PickerItem[] = [{ value: "", label: s.filters.all }, ...TASK_SOURCES.map((src) => ({ value: src, label: sourceLabel(src) }))];
 
   const statusText =

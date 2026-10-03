@@ -21,6 +21,9 @@ import { useLive } from "./context";
 import { arrivals, edgeLiveData } from "./edges";
 import { LIVE_CARD_H, LIVE_CARD_W, LiveMemberNode, type LiveNodeType } from "./LiveMemberNode";
 
+/** Room above the chart for the floating team-name pill and outcome banner (they never cover a card). */
+const FIT_PADDING = { top: "64px", right: 0.08, bottom: 0.1, left: 0.08 } as const;
+
 const nodeTypes = { live: LiveMemberNode };
 const edgeTypes = { org: OrgEdge };
 const LAYOUT = { hGap: 36, satGap: 72, vGap: 72 };
@@ -30,7 +33,7 @@ function FitButton() {
   const reduced = useReducedMotionPref();
   return (
     <div className="pointer-events-auto rounded-lg border border-line bg-surface/92 p-0.5 shadow-2 backdrop-blur-md">
-      <IconButton size="sm" label={s.builder.fitView} icon={<Maximize2 />} tooltipSide="top" onClick={() => void rf.fitView({ padding: 0.16, duration: reduced ? 0 : 320, maxZoom: 1 })} />
+      <IconButton size="sm" label={s.builder.fitView} icon={<Maximize2 />} tooltipSide="top" onClick={() => void rf.fitView({ padding: FIT_PADDING, duration: reduced ? 0 : 320, maxZoom: 1 })} />
     </div>
   );
 }
@@ -124,7 +127,7 @@ export function LiveCanvas({ className }: { className?: string }) {
     if (!spec || Object.keys(sizes).length < spec.members.length || fitted.current === String(spec.members.length)) return;
     fitted.current = String(spec.members.length);
     const t = setTimeout(() => {
-      void rf.fitView({ padding: 0.14, duration: 0, maxZoom: 1 });
+      void rf.fitView({ padding: FIT_PADDING, duration: 0, maxZoom: 1 });
       requestAnimationFrame(() => setSettled(true));
     }, 30);
     return () => clearTimeout(t);

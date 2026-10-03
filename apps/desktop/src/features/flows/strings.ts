@@ -432,6 +432,8 @@ export const s = {
     back: "Akışlar",
     new: "Yeni zamanlama",
     edit: "Zamanlamayı düzenle",
+    team: "Ekip",
+    defaultTeam: "Varsayılan ekip",
     emptyTitle: "Henüz zamanlama yok",
     emptyBody: "Her sabah bağımlılık taraması ya da her cuma sürüm notu gibi tekrarlayan işleri zamanla.",
     loadError: "Zamanlamalar yüklenemedi",

@@ -90,7 +90,7 @@ export const historyStrings = {
       failed: "Başarısız",
       cancelled: "İptal edildi",
     } as Record<string, string>,
-    modes: { single: "Tek", duo: "İkili", race: "Yarış", pipeline: "Hat", council: "Kurul", custom: "Özel" } as Record<string, string>,
+    modes: { single: "Tek", duo: "İkili", race: "Yarış", pipeline: "Hat", council: "Kurul", team: "Ekip", custom: "Özel" } as Record<string, string>,
     quality: (q: number) => `Kalite ${Math.round(q)}`,
   },
   audit: {

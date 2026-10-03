@@ -4,7 +4,7 @@
  * "fails → goes back" edge. A baton runs through the columns and lights each node as it arrives.
  * Re-mount (key) per graph: positions are measured once per mount.
  */
-import { GitMerge, GitPullRequest, Lightbulb, Rocket, Scale, ShieldCheck, Sparkles, Split, User, Bot, type LucideIcon } from "lucide-react";
+import { GitMerge, GitPullRequest, Lightbulb, Rocket, Scale, ShieldCheck, Sparkles, Split, User, Users, Bot, type LucideIcon } from "lucide-react";
 import { animate, motion, useMotionValue, useMotionValueEvent } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -35,6 +35,7 @@ const kindIcon: Partial<Record<NodeKind, LucideIcon>> = {
   git: GitPullRequest,
   deploy: Rocket,
   human: User,
+  team: Users,
 };
 
 function Glyph({ node, lit }: { node: FlowNode; lit: boolean }) {

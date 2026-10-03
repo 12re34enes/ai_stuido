@@ -50,7 +50,9 @@ export function AssignmentTimeline({ className }: { className?: string }) {
   // The domain grows in steps so finished bars don't creep left every second.
   const first = layout.bars.length ? Math.min(...layout.bars.map((b) => b.start)) : layout.start;
   const last = layout.bars.length ? Math.max(...layout.bars.map((b) => b.end), anyLive ? now : -Infinity) : layout.end;
-  const domainEnd = anyLive ? steppedEnd(first, Math.max(last, first + 60_000)) : Math.max(last, first + 60_000) + (Math.max(last, first + 60_000) - first) * 0.03;
+  // A finished run fits its bars (short runs no longer sit in the first third of a 60 s axis).
+  const doneEnd = Math.max(last, first + 10_000);
+  const domainEnd = anyLive ? steppedEnd(first, Math.max(last, first + 60_000)) : doneEnd + (doneEnd - first) * 0.03;
   const start = first - (domainEnd - first) * 0.03;
   const end = domainEnd;
   const span = Math.max(1, end - start);

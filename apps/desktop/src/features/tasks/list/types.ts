@@ -4,11 +4,13 @@
  */
 import type { Provider } from "@/lib/types";
 
-export type FlowMode = "single" | "duo" | "race" | "pipeline" | "council" | "custom";
+export type FlowMode = "single" | "duo" | "race" | "pipeline" | "council" | "team" | "custom";
 
 /** Modes offered in the composer and filters, in display order. */
 export const MODES = ["single", "duo", "race", "pipeline", "council"] as const satisfies readonly FlowMode[];
 export type BuiltinMode = (typeof MODES)[number];
+/** Modes the task list can filter by (built-ins, Ekip, then custom flows). */
+export const FILTER_MODES = [...MODES, "team", "custom"] as const satisfies readonly FlowMode[];
 
 export type TaskStatus = "draft" | "queued" | "running" | "waiting" | "completed" | "failed" | "cancelled";
 export type RunStatus = "running" | "waiting" | "completed" | "failed" | "cancelled";
@@ -65,7 +67,8 @@ export type NodeKind =
   | "merge"
   | "git"
   | "deploy"
-  | "human";
+  | "human"
+  | "team";
 
 export type GateKind =
   | "plan_approval"

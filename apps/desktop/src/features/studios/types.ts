@@ -20,7 +20,8 @@ export type NodeKind =
   | "merge"
   | "git"
   | "deploy"
-  | "human";
+  | "human"
+  | "team";
 
 export type GateKind =
   | "plan_approval"

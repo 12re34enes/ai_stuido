@@ -11,6 +11,7 @@ import { useCurrentWorkspace } from "@/lib/workspace";
 import { spring, transition, variants } from "@/motion/tokens";
 import { Badge, Button, ConfirmDialog, Dialog, EmptyState, IconButton, Input, SegmentedControl, Select, type SelectOption, Skeleton, Switch, Textarea, toast } from "@/ui";
 
+import { useTeams } from "../../teams/api";
 import { useCreateSchedule, useDeleteSchedule, useFlows, useModes, useRunSchedule, useSchedules, useUpdateSchedule } from "../api";
 import { builderToCron, COMMON_TIMEZONES, cronToBuilder, describeCron, localTimeZone, nextRuns, parseCron, type CronBuilder } from "../model/cron";
 import { modeLabels, s } from "../strings";
@@ -20,7 +21,7 @@ import { FormField } from "../editor/inspector/controls";
 import { CronBuilderField, CronPreview } from "./CronBuilder";
 import { formatRunDay, formatRunTime, relativeRun } from "./format";
 
-const RUNNABLE_MODES: FlowMode[] = ["single", "duo", "race", "pipeline", "council"];
+const RUNNABLE_MODES: FlowMode[] = ["single", "duo", "race", "pipeline", "council", "team"];
 
 interface Draft {
   name: string;
@@ -29,6 +30,7 @@ interface Draft {
   source: "flow" | "mode";
   flowId: string | null;
   mode: FlowMode;
+  teamId: string | null;
   builder: CronBuilder;
   timezone: string;
   enabled: boolean;
@@ -36,7 +38,7 @@ interface Draft {
 
 function draftFrom(schedule: Schedule | null): Draft {
   if (!schedule) {
-    return { name: "", title: "", prompt: "", source: "mode", flowId: null, mode: "duo", builder: { kind: "weekdays", hour: 8, minute: 45 }, timezone: localTimeZone(), enabled: true };
+    return { name: "", title: "", prompt: "", source: "mode", flowId: null, mode: "duo", teamId: null, builder: { kind: "weekdays", hour: 8, minute: 45 }, timezone: localTimeZone(), enabled: true };
   }
   const t = schedule.template;
   return {
@@ -46,6 +48,7 @@ function draftFrom(schedule: Schedule | null): Draft {
     source: t.flow_id ? "flow" : "mode",
     flowId: t.flow_id,
     mode: t.mode,
+    teamId: t.team_id ?? null,
     builder: cronToBuilder(schedule.cron),
     timezone: schedule.timezone,
     enabled: schedule.enabled,
@@ -56,10 +59,11 @@ function ScheduleDialog({ open, onOpenChange, schedule, workspaceId }: { open: b
   const [draft, setDraft] = useState<Draft>(() => draftFrom(schedule));
   const flows = useFlows(workspaceId);
   const modes = useModes();
+  const teams = useTeams(workspaceId, open && draft.mode === "team");
   const create = useCreateSchedule();
   const update = useUpdateSchedule();
   const [error, setError] = useState<string | null>(null);
-  const ids = { name: useId(), title: useId(), prompt: useId(), flow: useId(), mode: useId(), tz: useId() };
+  const ids = { name: useId(), title: useId(), prompt: useId(), flow: useId(), mode: useId(), team: useId(), tz: useId() };
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const cron = builderToCron(draft.builder);
   const cronOk = parseCron(cron).ok;
@@ -68,6 +72,7 @@ function ScheduleDialog({ open, onOpenChange, schedule, workspaceId }: { open: b
 
   const tzOptions: SelectOption[] = [...new Set([draft.timezone, localTimeZone(), ...COMMON_TIMEZONES])].map((tz) => ({ value: tz, label: tz.replace(/_/g, " ") }));
   const flowOptions: SelectOption[] = (flows.data ?? []).map((f) => ({ value: f.id, label: f.name, description: `${s.version(f.version)} · ${s.nodeCount(f.graph.nodes.length)}` }));
+  const teamOptions: SelectOption[] = [{ value: "", label: s.schedules.defaultTeam }, ...(teams.data ?? []).map((t) => ({ value: t.id, label: t.name }))];
   const modeOptions: SelectOption<FlowMode>[] = RUNNABLE_MODES.map((m) => ({ value: m, label: modes.data?.find((x) => x.mode === m)?.label ?? modeLabels[m], description: modes.data?.find((x) => x.mode === m)?.description }));
 
   const submit = async () => {
@@ -79,6 +84,7 @@ function ScheduleDialog({ open, onOpenChange, schedule, workspaceId }: { open: b
       prompt: draft.prompt,
       mode: draft.source === "flow" ? "custom" : draft.mode,
       flow_id: draft.source === "flow" ? draft.flowId : null,
+      team_id: draft.source === "mode" && draft.mode === "team" ? draft.teamId : null,
     };
     try {
       if (schedule) await update.mutateAsync({ id: schedule.id, body: { name: draft.name.trim(), cron, timezone: draft.timezone, template, enabled: draft.enabled } });
@@ -146,8 +152,15 @@ function ScheduleDialog({ open, onOpenChange, schedule, workspaceId }: { open: b
                       <Select id={ids.flow} aria-label={s.schedules.flow} placeholder={s.schedules.flow} value={draft.flowId ?? undefined} options={flowOptions} onValueChange={(flowId) => set({ flowId })} className="w-full" />
                     </motion.div>
                   ) : (
-                    <motion.div key="mode" {...variants.fade}>
+                    <motion.div key="mode" {...variants.fade} className="flex gap-2">
                       <Select<FlowMode> id={ids.mode} aria-label={s.schedules.mode} value={draft.mode} options={modeOptions} onValueChange={(mode) => set({ mode })} className="w-full" />
+                      <AnimatePresence initial={false}>
+                        {draft.mode === "team" && (
+                          <motion.div key="team" {...variants.fade} className="w-full">
+                            <Select id={ids.team} aria-label={s.schedules.team} value={draft.teamId ?? ""} options={teamOptions} onValueChange={(v) => set({ teamId: v || null })} className="w-full" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                   )}
                 </AnimatePresence>

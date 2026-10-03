@@ -7,8 +7,8 @@ import type { Approval } from "@/lib/types";
 
 import { windowStrings } from "./strings";
 
-export type TaskMode = "single" | "duo" | "race" | "pipeline" | "council";
-export const TASK_MODES: TaskMode[] = ["single", "duo", "race", "pipeline", "council"];
+export type TaskMode = "single" | "duo" | "race" | "pipeline" | "council" | "team";
+export const TASK_MODES: TaskMode[] = ["single", "duo", "race", "pipeline", "council", "team"];
 
 export interface TaskSummary {
   id: string;

@@ -206,6 +206,7 @@ export const nodeKindLabels: Record<string, string> = {
   git: "Git",
   deploy: "Deploy",
   human: "İnsan",
+  team: "Ekip",
 };
 
 export const gateLabels: Record<string, string> = {

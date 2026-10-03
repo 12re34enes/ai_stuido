@@ -353,6 +353,8 @@ export interface ScheduleTemplate {
   mode: FlowMode;
   flow_id: string | null;
   studio_id: string | null;
+  /** mode "team": saved or built-in team template (the default team when null). */
+  team_id?: string | null;
   repo_ids: string[] | null;
   base_ref: string | null;
   inputs: Record<string, unknown>;
