@@ -1,0 +1,176 @@
+{
+ "version": "0.160.0",
+ "threadId": "019a7a10-0000-7000-8000-00000000a006",
+ "turnScripts": [
+  [
+   {
+    "approval": "permissions",
+    "params": {
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "itemId": "perm_1",
+     "environmentId": null,
+     "startedAtMs": 3,
+     "cwd": "$CWD",
+     "reason": "Paket indirmek için ağ gerekiyor",
+     "permissions": {
+      "network": {
+       "enabled": true
+      },
+      "fileSystem": {
+       "read": null,
+       "write": [
+        "$CWD/../shared"
+       ]
+      }
+     }
+    },
+    "accept": [
+     {
+      "item": {
+       "type": "agentMessage",
+       "id": "msg_p_ok",
+       "text": "İzin verildi.",
+       "phase": "final_answer",
+       "memoryCitation": null
+      },
+      "phase": "completed"
+     }
+    ],
+    "decline": [
+     {
+      "item": {
+       "type": "agentMessage",
+       "id": "msg_p_no",
+       "text": "İzin yok.",
+       "phase": "final_answer",
+       "memoryCitation": null
+      },
+      "phase": "completed"
+     }
+    ]
+   },
+   {
+    "item": {
+     "type": "commandExecution",
+     "id": "call_cmd1",
+     "pluginId": null,
+     "scriptPath": null,
+     "command": "/bin/zsh -lc 'npm test'",
+     "cwd": "$CWD",
+     "processId": null,
+     "source": "agent",
+     "status": "inProgress",
+     "commandActions": [
+      {
+       "type": "unknown",
+       "command": "npm test"
+      }
+     ],
+     "aggregatedOutput": null,
+     "exitCode": null,
+     "durationMs": null
+    },
+    "phase": "started"
+   },
+   {
+    "approvalResolved": "command",
+    "afterMs": 150,
+    "params": {
+     "kind": "command",
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "itemId": "call_cmd1",
+     "startedAtMs": 4,
+     "environmentId": null,
+     "command": "/bin/zsh -lc 'npm test'",
+     "cwd": "$CWD"
+    }
+   },
+   {
+    "item": {
+     "type": "commandExecution",
+     "id": "call_cmd1",
+     "pluginId": null,
+     "scriptPath": null,
+     "command": "/bin/zsh -lc 'npm test'",
+     "cwd": "$CWD",
+     "processId": null,
+     "source": "agent",
+     "status": "declined",
+     "commandActions": [
+      {
+       "type": "unknown",
+       "command": "npm test"
+      }
+     ],
+     "aggregatedOutput": null,
+     "exitCode": null,
+     "durationMs": null
+    },
+    "phase": "completed"
+   },
+   {
+    "request": "item/tool/requestUserInput",
+    "params": {
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "itemId": "ask_1",
+     "isBlocking": true,
+     "autoResolutionMs": null,
+     "questions": [
+      {
+       "id": "q1",
+       "header": "Seçim",
+       "question": "Hangisi?",
+       "isOther": false,
+       "isSecret": false,
+       "options": null
+      }
+     ]
+    }
+   },
+   {
+    "request": "currentTime/read",
+    "params": {
+     "threadId": "$THREAD"
+    }
+   },
+   {
+    "request": "account/chatgptAuthTokens/refresh",
+    "params": {
+     "reason": "unauthorized"
+    }
+   },
+   {
+    "toolCall": {
+     "callId": "call_bad",
+     "tool": "deploy_request",
+     "arguments": {}
+    },
+    "then": []
+   },
+   {
+    "toolCall": {
+     "callId": "call_ns",
+     "tool": "memory_read",
+     "namespace": "other",
+     "arguments": {
+      "query": "x"
+     }
+    },
+    "then": []
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_x",
+     "text": "Bitti.",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   }
+  ]
+ ]
+}

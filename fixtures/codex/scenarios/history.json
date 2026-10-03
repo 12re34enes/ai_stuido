@@ -1,0 +1,393 @@
+{
+ "version": "0.160.0",
+ "pageSize": 2,
+ "threads": [
+  {
+   "id": "019a7a10-0000-7000-8000-00000000b001",
+   "sessionId": "019a7a10-0000-7000-8000-00000000b001",
+   "forkedFromId": null,
+   "parentThreadId": null,
+   "preview": "Testleri düzelt",
+   "ephemeral": false,
+   "projectId": null,
+   "historyMode": "paginated",
+   "modelProvider": "openai",
+   "model": "gpt-5.5",
+   "reasoningEffort": "medium",
+   "createdAt": 1789999700,
+   "updatedAt": 1790000300,
+   "status": {
+    "type": "notLoaded"
+   },
+   "path": "/Users/dev/.codex/sessions/2026/10/01/rollout-2026-10-01T10-00-00-019a7a10-0000-7000-8000-00000000b001.jsonl",
+   "cwd": "/Users/dev/proj",
+   "cliVersion": "0.160.0",
+   "source": "cli",
+   "gitInfo": {
+    "sha": null,
+    "branch": "main",
+    "originUrl": null
+   },
+   "name": null,
+   "turns": []
+  },
+  {
+   "id": "019a7a10-0000-7000-8000-00000000b002",
+   "sessionId": "019a7a10-0000-7000-8000-00000000b002",
+   "forkedFromId": null,
+   "parentThreadId": null,
+   "preview": "README güncelle",
+   "ephemeral": false,
+   "projectId": null,
+   "historyMode": "paginated",
+   "modelProvider": "openai",
+   "model": "gpt-5.5",
+   "reasoningEffort": "medium",
+   "createdAt": 1789999600,
+   "updatedAt": 1790000200,
+   "status": {
+    "type": "notLoaded"
+   },
+   "path": "/Users/dev/.codex/sessions/2026/10/01/rollout-2026-10-01T10-00-00-019a7a10-0000-7000-8000-00000000b002.jsonl",
+   "cwd": "/Users/dev/proj",
+   "cliVersion": "0.160.0",
+   "source": "cli",
+   "gitInfo": null,
+   "name": "README işi",
+   "turns": []
+  },
+  {
+   "id": "019a7a10-0000-7000-8000-00000000b003",
+   "sessionId": "019a7a10-0000-7000-8000-00000000b003",
+   "forkedFromId": null,
+   "parentThreadId": null,
+   "preview": "Başka proje",
+   "ephemeral": false,
+   "projectId": null,
+   "historyMode": "paginated",
+   "modelProvider": "openai",
+   "model": "gpt-5.5",
+   "reasoningEffort": "medium",
+   "createdAt": 1789999500,
+   "updatedAt": 1790000100,
+   "status": {
+    "type": "notLoaded"
+   },
+   "path": "/Users/dev/.codex/sessions/2026/10/01/rollout-2026-10-01T10-00-00-019a7a10-0000-7000-8000-00000000b003.jsonl",
+   "cwd": "/Users/dev/other",
+   "cliVersion": "0.160.0",
+   "source": "cli",
+   "gitInfo": null,
+   "name": null,
+   "turns": []
+  }
+ ],
+ "turns": {
+  "019a7a10-0000-7000-8000-00000000b001": [
+   {
+    "id": "turn_h1",
+    "items": [
+     {
+      "type": "userMessage",
+      "id": "u1",
+      "clientId": null,
+      "content": [
+       {
+        "type": "text",
+        "text": "Testleri düzelt",
+        "text_elements": []
+       }
+      ]
+     },
+     {
+      "type": "reasoning",
+      "id": "r1",
+      "summary": [
+       "Önce testleri çalıştırayım"
+      ],
+      "content": []
+     },
+     {
+      "type": "commandExecution",
+      "id": "c1",
+      "pluginId": null,
+      "scriptPath": null,
+      "command": "/bin/zsh -lc 'pytest -q'",
+      "cwd": "/Users/dev/proj",
+      "processId": null,
+      "source": "agent",
+      "status": "completed",
+      "commandActions": [
+       {
+        "type": "unknown",
+        "command": "pytest -q"
+       }
+      ],
+      "aggregatedOutput": "1 failed",
+      "exitCode": 1,
+      "durationMs": 900
+     },
+     {
+      "type": "commandExecution",
+      "id": "c2",
+      "pluginId": null,
+      "scriptPath": null,
+      "command": "/bin/zsh -lc 'cat src/app.py'",
+      "cwd": "/Users/dev/proj",
+      "processId": null,
+      "source": "agent",
+      "status": "completed",
+      "commandActions": [
+       {
+        "type": "read",
+        "command": "cat src/app.py",
+        "name": "app.py",
+        "path": "/Users/dev/proj/src/app.py"
+       }
+      ],
+      "aggregatedOutput": "print('x')",
+      "exitCode": 0,
+      "durationMs": 5
+     },
+     {
+      "type": "fileChange",
+      "id": "p1",
+      "status": "completed",
+      "changes": [
+       {
+        "path": "/Users/dev/proj/src/app.py",
+        "kind": {
+         "type": "update",
+         "move_path": null
+        },
+        "diff": "@@ -1 +1 @@\n-print('x')\n+print('y')\n"
+       },
+       {
+        "path": "/Users/dev/proj/old.txt",
+        "kind": {
+         "type": "update",
+         "move_path": "/Users/dev/proj/new.txt"
+        },
+        "diff": ""
+       },
+       {
+        "path": "/Users/dev/proj/tmp.log",
+        "kind": {
+         "type": "delete"
+        },
+        "diff": "-log\n"
+       }
+      ]
+     },
+     {
+      "type": "mcpToolCall",
+      "id": "m1",
+      "server": "docs",
+      "tool": "search",
+      "status": "completed",
+      "arguments": {
+       "q": "pytest"
+      },
+      "appContext": null,
+      "mcpAppUi": null,
+      "pluginId": null,
+      "readOnlyHint": true,
+      "result": {
+       "content": [
+        {
+         "type": "text",
+         "text": "docs result"
+        }
+       ],
+       "structuredContent": null,
+       "_meta": null
+      },
+      "error": null,
+      "durationMs": 40
+     },
+     {
+      "type": "dynamicToolCall",
+      "id": "d1",
+      "namespace": null,
+      "tool": "memory_read",
+      "arguments": {
+       "query": "x"
+      },
+      "status": "completed",
+      "contentItems": [
+       {
+        "type": "inputText",
+        "text": "memory text"
+       }
+      ],
+      "success": true,
+      "durationMs": 2
+     },
+     {
+      "type": "webSearch",
+      "id": "w1",
+      "query": "pytest fixtures",
+      "action": {
+       "type": "search",
+       "query": "pytest fixtures",
+       "queries": null
+      },
+      "results": null
+     },
+     {
+      "type": "agentMessage",
+      "id": "a1",
+      "text": "Düzelttim.",
+      "phase": "final_answer",
+      "memoryCitation": null
+     }
+    ],
+    "itemsView": "full",
+    "status": "completed",
+    "error": null,
+    "startedAt": 1790000000,
+    "completedAt": 1790000060,
+    "durationMs": 60000
+   },
+   {
+    "id": "turn_h2",
+    "items": [
+     {
+      "type": "userMessage",
+      "id": "u2",
+      "clientId": null,
+      "content": [
+       {
+        "type": "text",
+        "text": "Devam et",
+        "text_elements": []
+       }
+      ]
+     },
+     {
+      "type": "userMessage",
+      "id": "u3",
+      "clientId": null,
+      "content": [
+       {
+        "type": "text",
+        "text": "Sadece src klasörü",
+        "text_elements": []
+       }
+      ]
+     },
+     {
+      "type": "agentMessage",
+      "id": "a2",
+      "text": "Durdum.",
+      "phase": null,
+      "memoryCitation": null
+     }
+    ],
+    "itemsView": "full",
+    "status": "interrupted",
+    "error": null,
+    "startedAt": 1790000100,
+    "completedAt": 1790000110,
+    "durationMs": 10000
+   },
+   {
+    "id": "turn_h3",
+    "items": [
+     {
+      "type": "userMessage",
+      "id": "u4",
+      "clientId": null,
+      "content": [
+       {
+        "type": "text",
+        "text": "Bir daha dene",
+        "text_elements": []
+       }
+      ]
+     }
+    ],
+    "itemsView": "full",
+    "status": "failed",
+    "error": {
+     "message": "You've hit your usage limit.",
+     "codexErrorInfo": "usageLimitExceeded",
+     "additionalDetails": null
+    },
+    "startedAt": 1790000200,
+    "completedAt": 1790000201,
+    "durationMs": 1000
+   }
+  ]
+ },
+ "forkId": "019a7a10-0000-7000-8000-00000000c001",
+ "turnScripts": [
+  [
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_r1",
+     "text": "Kaldığım yerden devam ediyorum.",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   }
+  ]
+ ],
+ "rateLimits": {
+  "ordinaryUsageAllowed": true,
+  "rateLimits": {
+   "limitId": "codex",
+   "limitName": null,
+   "primary": {
+    "usedPercent": 42,
+    "windowDurationMins": 300,
+    "resetsAt": 1791030000
+   },
+   "secondary": {
+    "usedPercent": 85,
+    "windowDurationMins": 10080,
+    "resetsAt": 1791500000
+   },
+   "credits": null,
+   "planType": "plus",
+   "rateLimitReachedType": null
+  },
+  "rateLimitsByLimitId": {
+   "codex": {
+    "limitId": "codex",
+    "limitName": null,
+    "primary": {
+     "usedPercent": 42,
+     "windowDurationMins": 300,
+     "resetsAt": 1791030000
+    },
+    "secondary": {
+     "usedPercent": 85,
+     "windowDurationMins": 10080,
+     "resetsAt": 1791500000
+    },
+    "credits": null,
+    "planType": "plus",
+    "rateLimitReachedType": null
+   },
+   "codex_other": {
+    "limitId": "codex_other",
+    "limitName": "GPT-5.5 Pro",
+    "primary": {
+     "usedPercent": 100,
+     "windowDurationMins": 60,
+     "resetsAt": 1791020000
+    },
+    "secondary": null,
+    "credits": null,
+    "planType": "plus",
+    "rateLimitReachedType": "rate_limit_reached"
+   }
+  },
+  "rateLimitResetCredits": null,
+  "accountId": null,
+  "rateLimitUpsell": null
+ }
+}

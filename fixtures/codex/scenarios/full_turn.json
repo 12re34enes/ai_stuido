@@ -1,0 +1,397 @@
+{
+ "version": "0.160.0",
+ "login": "chatgpt",
+ "threadId": "019a7a10-0000-7000-8000-00000000a001",
+ "model": "gpt-5.5",
+ "turnScripts": [
+  [
+   {
+    "item": {
+     "type": "reasoning",
+     "id": "rs_1",
+     "summary": [],
+     "content": []
+    },
+    "phase": "started"
+   },
+   {
+    "notify": "item/reasoning/summaryTextDelta",
+    "params": {
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "itemId": "rs_1",
+     "delta": "Testleri çalıştırmalıyım",
+     "summaryIndex": 0
+    }
+   },
+   {
+    "item": {
+     "type": "reasoning",
+     "id": "rs_1",
+     "summary": [
+      "Testleri çalıştırmalıyım"
+     ],
+     "content": []
+    },
+    "phase": "completed"
+   },
+   {
+    "item": {
+     "type": "commandExecution",
+     "id": "call_cmd1",
+     "pluginId": null,
+     "scriptPath": null,
+     "command": "/bin/zsh -lc 'npm test'",
+     "cwd": "$CWD",
+     "processId": null,
+     "source": "agent",
+     "status": "inProgress",
+     "commandActions": [
+      {
+       "type": "unknown",
+       "command": "npm test"
+      }
+     ],
+     "aggregatedOutput": null,
+     "exitCode": null,
+     "durationMs": null
+    },
+    "phase": "started"
+   },
+   {
+    "approval": "command",
+    "params": {
+     "kind": "command",
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "itemId": "call_cmd1",
+     "startedAtMs": 1,
+     "environmentId": null,
+     "reason": "Testleri çalıştırmak için",
+     "command": "/bin/zsh -lc 'npm test'",
+     "cwd": "$CWD",
+     "commandActions": [
+      {
+       "type": "unknown",
+       "command": "npm test"
+      }
+     ],
+     "availableDecisions": [
+      "accept",
+      "decline",
+      "cancel"
+     ]
+    },
+    "accept": [
+     {
+      "notify": "item/commandExecution/outputDelta",
+      "params": {
+       "threadId": "$THREAD",
+       "turnId": "$TURN",
+       "itemId": "call_cmd1",
+       "delta": "ok 1 tests\n"
+      }
+     },
+     {
+      "item": {
+       "type": "commandExecution",
+       "id": "call_cmd1",
+       "pluginId": null,
+       "scriptPath": null,
+       "command": "/bin/zsh -lc 'npm test'",
+       "cwd": "$CWD",
+       "processId": null,
+       "source": "agent",
+       "status": "completed",
+       "commandActions": [
+        {
+         "type": "unknown",
+         "command": "npm test"
+        }
+       ],
+       "aggregatedOutput": "ok 1 tests\n",
+       "exitCode": 0,
+       "durationMs": 15
+      },
+      "phase": "completed"
+     }
+    ],
+    "decline": [
+     {
+      "item": {
+       "type": "commandExecution",
+       "id": "call_cmd1",
+       "pluginId": null,
+       "scriptPath": null,
+       "command": "/bin/zsh -lc 'npm test'",
+       "cwd": "$CWD",
+       "processId": null,
+       "source": "agent",
+       "status": "declined",
+       "commandActions": [
+        {
+         "type": "unknown",
+         "command": "npm test"
+        }
+       ],
+       "aggregatedOutput": null,
+       "exitCode": null,
+       "durationMs": null
+      },
+      "phase": "completed"
+     }
+    ]
+   },
+   {
+    "item": {
+     "type": "fileChange",
+     "id": "call_patch1",
+     "changes": [
+      {
+       "path": "$CWD/src/app.ts",
+       "kind": {
+        "type": "update",
+        "move_path": null
+       },
+       "diff": "@@ -1 +1 @@\n-a\n+b\n"
+      },
+      {
+       "path": "$CWD/README.md",
+       "kind": {
+        "type": "add"
+       },
+       "diff": "+# merhaba\n"
+      }
+     ],
+     "status": "inProgress"
+    },
+    "phase": "started"
+   },
+   {
+    "approval": "fileChange",
+    "params": {
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "itemId": "call_patch1",
+     "startedAtMs": 2,
+     "reason": null,
+     "grantRoot": null
+    },
+    "accept": [
+     {
+      "item": {
+       "type": "fileChange",
+       "id": "call_patch1",
+       "changes": [
+        {
+         "path": "$CWD/src/app.ts",
+         "kind": {
+          "type": "update",
+          "move_path": null
+         },
+         "diff": "@@ -1 +1 @@\n-a\n+b\n"
+        },
+        {
+         "path": "$CWD/README.md",
+         "kind": {
+          "type": "add"
+         },
+         "diff": "+# merhaba\n"
+        }
+       ],
+       "status": "completed"
+      },
+      "phase": "completed"
+     }
+    ],
+    "decline": [
+     {
+      "item": {
+       "type": "fileChange",
+       "id": "call_patch1",
+       "changes": [
+        {
+         "path": "$CWD/src/app.ts",
+         "kind": {
+          "type": "update",
+          "move_path": null
+         },
+         "diff": "@@ -1 +1 @@\n-a\n+b\n"
+        },
+        {
+         "path": "$CWD/README.md",
+         "kind": {
+          "type": "add"
+         },
+         "diff": "+# merhaba\n"
+        }
+       ],
+       "status": "declined"
+      },
+      "phase": "completed"
+     }
+    ]
+   },
+   {
+    "item": {
+     "type": "dynamicToolCall",
+     "id": "call_tool1",
+     "namespace": null,
+     "tool": "memory_read",
+     "arguments": {
+      "query": "conventions"
+     },
+     "status": "inProgress",
+     "contentItems": null,
+     "success": null,
+     "durationMs": null
+    },
+    "phase": "started"
+   },
+   {
+    "toolCall": {
+     "callId": "call_tool1",
+     "tool": "memory_read",
+     "arguments": {
+      "query": "conventions"
+     }
+    },
+    "then": [
+     {
+      "item": {
+       "type": "dynamicToolCall",
+       "id": "call_tool1",
+       "namespace": null,
+       "tool": "memory_read",
+       "arguments": {
+        "query": "conventions"
+       },
+       "status": "completed",
+       "contentItems": [
+        {
+         "type": "inputText",
+         "text": "$TOOL_TEXT"
+        }
+       ],
+       "success": "$TOOL_SUCCESS",
+       "durationMs": 3
+      },
+      "phase": "completed"
+     }
+    ]
+   },
+   {
+    "notify": "thread/tokenUsage/updated",
+    "params": {
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "tokenUsage": {
+      "total": {
+       "totalTokens": 1500,
+       "inputTokens": 1200,
+       "cachedInputTokens": 200,
+       "cacheWriteInputTokens": 0,
+       "outputTokens": 300,
+       "reasoningOutputTokens": 100
+      },
+      "last": {
+       "totalTokens": 1000,
+       "inputTokens": 700,
+       "cachedInputTokens": 200,
+       "cacheWriteInputTokens": 0,
+       "outputTokens": 300,
+       "reasoningOutputTokens": 100
+      },
+      "modelContextWindow": 258400
+     }
+    }
+   },
+   {
+    "notify": "thread/tokenUsage/updated",
+    "params": {
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "tokenUsage": {
+      "total": {
+       "totalTokens": 2450,
+       "inputTokens": 2000,
+       "cachedInputTokens": 500,
+       "cacheWriteInputTokens": 0,
+       "outputTokens": 450,
+       "reasoningOutputTokens": 120
+      },
+      "last": {
+       "totalTokens": 1250,
+       "inputTokens": 800,
+       "cachedInputTokens": 500,
+       "cacheWriteInputTokens": 0,
+       "outputTokens": 450,
+       "reasoningOutputTokens": 120
+      },
+      "modelContextWindow": 258400
+     }
+    }
+   },
+   {
+    "notify": "account/rateLimits/updated",
+    "params": {
+     "rateLimits": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 42,
+       "windowDurationMins": 300,
+       "resetsAt": 1791030000
+      },
+      "secondary": {
+       "usedPercent": 85,
+       "windowDurationMins": 10080,
+       "resetsAt": 1791500000
+      },
+      "credits": null,
+      "planType": "plus",
+      "rateLimitReachedType": null
+     }
+    }
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_1",
+     "text": "",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "started"
+   },
+   {
+    "notify": "item/agentMessage/delta",
+    "params": {
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "itemId": "msg_1",
+     "delta": "Testler "
+    }
+   },
+   {
+    "notify": "item/agentMessage/delta",
+    "params": {
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "itemId": "msg_1",
+     "delta": "geçti."
+    }
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_1",
+     "text": "Testler geçti.",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   }
+  ]
+ ]
+}

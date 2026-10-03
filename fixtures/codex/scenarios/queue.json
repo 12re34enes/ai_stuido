@@ -1,0 +1,45 @@
+{
+ "version": "0.160.0",
+ "threadId": "019a7a10-0000-7000-8000-00000000a003",
+ "turnScripts": [
+  [
+   {
+    "sleep": 300
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_q1",
+     "text": "Birinci bitti.",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   }
+  ],
+  [
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_q2",
+     "text": "İkinci bitti.",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   }
+  ],
+  [
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_q3",
+     "text": "Üçüncü bitti.",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   }
+  ]
+ ]
+}

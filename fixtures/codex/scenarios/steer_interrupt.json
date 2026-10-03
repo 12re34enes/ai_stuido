@@ -1,0 +1,106 @@
+{
+ "version": "0.160.0",
+ "threadId": "019a7a10-0000-7000-8000-00000000a002",
+ "turnScripts": [
+  [
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_s1",
+     "text": "",
+     "phase": "commentary",
+     "memoryCitation": null
+    },
+    "phase": "started"
+   },
+   {
+    "notify": "item/agentMessage/delta",
+    "params": {
+     "threadId": "$THREAD",
+     "turnId": "$TURN",
+     "itemId": "msg_s1",
+     "delta": "Çalışıyorum"
+    }
+   },
+   {
+    "waitSteer": true
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_s1",
+     "text": "Çalışıyorum",
+     "phase": "commentary",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_s2",
+     "text": "Yönlendirme alındı.",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   }
+  ],
+  [
+   {
+    "item": {
+     "type": "reasoning",
+     "id": "rs_i",
+     "summary": [],
+     "content": []
+    },
+    "phase": "started"
+   },
+   {
+    "waitInterrupt": true
+   }
+  ],
+  [
+   {
+    "notify": "error",
+    "params": {
+     "error": {
+      "message": "Reconnecting... 1/5",
+      "codexErrorInfo": {
+       "responseStreamDisconnected": {
+        "httpStatusCode": null
+       }
+      },
+      "additionalDetails": "stream disconnected before completion",
+      "misalignment": null
+     },
+     "willRetry": true,
+     "threadId": "$THREAD",
+     "turnId": "$TURN"
+    }
+   },
+   {
+    "complete": {
+     "status": "failed",
+     "error": {
+      "message": "You've hit your usage limit.",
+      "codexErrorInfo": "usageLimitExceeded",
+      "additionalDetails": null
+     }
+    }
+   }
+  ],
+  [
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_after",
+     "text": "Tekrar hazırım.",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   }
+  ]
+ ]
+}

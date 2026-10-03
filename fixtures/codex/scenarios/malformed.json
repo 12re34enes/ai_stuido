@@ -1,0 +1,61 @@
+{
+ "version": "0.160.0",
+ "threadId": "019a7a10-0000-7000-8000-00000000a005",
+ "afterInitialize": [
+  {
+   "raw": "this is not json"
+  },
+  {
+   "raw": "[1, 2, 3]"
+  },
+  {
+   "notify": "remoteControl/status/changed",
+   "params": {
+    "status": "disabled",
+    "serverName": "fake",
+    "installationId": "x",
+    "environmentId": null
+   }
+  }
+ ],
+ "turnScripts": [
+  [
+   {
+    "raw": "{\"broken\": "
+   },
+   {
+    "notify": "some/futureNotification",
+    "params": {
+     "foo": 1
+    },
+    "invalid": true
+   },
+   {
+    "notify": "item/agentMessage/delta",
+    "params": {
+     "threadId": "019a7a10-ffff-7000-8000-00000000ffff",
+     "turnId": "other",
+     "itemId": "sub_msg",
+     "delta": "alt ajan"
+    }
+   },
+   {
+    "notify": "item/agentMessage/delta",
+    "params": {
+     "threadId": "$THREAD"
+    },
+    "invalid": true
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_m1",
+     "text": "Hâlâ çalışıyorum.",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   }
+  ]
+ ]
+}
