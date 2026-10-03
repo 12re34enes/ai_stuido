@@ -4,10 +4,9 @@ import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useNow } from "@/hooks/useNow";
-import { relativeTime } from "@/i18n/format";
 import { useEnvironmentScope } from "@/lib/environment";
 import { stagger, variants } from "@/motion/tokens";
-import { Badge, Button, cn, EmptyState, EnvBadge, IconButton, Menu, MenuItem, MenuSeparator, Skeleton, toast } from "@/ui";
+import { Badge, Button, cn, EmptyState, EnvBadge, IconButton, Menu, MenuItem, MenuSeparator, RelativeTime, Skeleton, toast } from "@/ui";
 
 import { useDeleteDeployProfile, useDeployProfile, useDeployRuns, useHosts } from "../api";
 import {
@@ -106,7 +105,7 @@ function RunListItem({ run, active, onSelect, now }: { run: DeployRun; active: b
         <span className="flex items-center gap-2">
           <RunStatusBadge status={run.status} />
           {run.rollback_of && <Undo2 className="size-3.5 text-fg-faint" aria-label={d.rollbackOf} />}
-          <span className="ml-auto text-2xs text-fg-faint tabular">{relativeTime(run.started_at, new Date(now))}</span>
+          <RelativeTime value={run.started_at} now={now} className="ml-auto text-2xs text-fg-faint tabular" />
         </span>
         <span className="truncate font-mono text-xs text-fg-muted">{run.ref ?? "—"}</span>
       </button>

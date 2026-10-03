@@ -37,6 +37,7 @@ export { AgentCard, type AgentCardProps } from "./AgentCard";
 export { AnimatedNumber, type AnimatedNumberProps } from "./AnimatedNumber";
 export { CountBadge, type CountBadgeProps } from "./CountBadge";
 export { Timeline, TimelineItem, type TimelineItemProps, type TimelineProps } from "./Timeline";
+export { RelativeTime, type RelativeTimeProps } from "./RelativeTime";
 
 // Page scaffolding and states
 export { BackLink, Callout, FormGroupLabel, KeyValueList, PageBody, PageHeader, Section, SettingRow, type CalloutTone } from "./Page";

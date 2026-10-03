@@ -3,9 +3,8 @@ import { motion } from "motion/react";
 import { createElement } from "react";
 
 import { useNow } from "@/hooks/useNow";
-import { formatDateTime, relativeTime } from "@/i18n/format";
 import { spring, stagger, variants } from "@/motion/tokens";
-import { Badge, cn, Tooltip } from "@/ui";
+import { Badge, cn, RelativeTime, Tooltip } from "@/ui";
 
 import { memoryStrings as s } from "../strings";
 import { actorKind } from "../tree";
@@ -64,7 +63,7 @@ export function CommitList({
                 <span className="flex items-center gap-1.5 text-2xs text-fg-faint">
                   <span className="font-mono">{c.short_sha}</span>
                   <span>·</span>
-                  <span title={formatDateTime(c.committed_at)}>{relativeTime(c.committed_at, new Date(now))}</span>
+                  <RelativeTime value={c.committed_at} now={now} />
                 </span>
                 {showPaths && c.paths.length > 0 && (
                   <span className="mt-0.5 flex flex-wrap gap-1">

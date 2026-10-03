@@ -3,10 +3,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
 import { useNow } from "@/hooks/useNow";
-import { relativeTime } from "@/i18n/format";
 import { openExternal } from "@/native";
 import { stagger, variants } from "@/motion/tokens";
-import { Badge, Button, EmptyState, IconButton, Input, Menu, MenuItem, Skeleton, toast } from "@/ui";
+import { Badge, Button, EmptyState, IconButton, Input, Menu, MenuItem, RelativeTime, Skeleton, toast } from "@/ui";
 
 import { useDeleteGitAccount, useGitAccounts, useGitRepos, useVerifyGitAccount } from "../api";
 import { ConfirmDialog, errorMessage, ErrorState, ListSkeleton } from "../kit";
@@ -67,7 +66,7 @@ function RepoList({ account }: { account: GitAccount }) {
                 {r.default_branch}
               </span>
             )}
-            {r.updated_at && <span className="w-24 text-right text-2xs text-fg-faint">{relativeTime(r.updated_at, new Date(now))}</span>}
+            {r.updated_at && <RelativeTime value={r.updated_at} now={now} className="w-24 text-right text-2xs text-fg-faint" />}
             <IconButton size="sm" label="Tarayıcıda aç" icon={<ExternalLink />} onClick={() => void openExternal(r.web_url)} className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100" />
           </motion.li>
         ))}

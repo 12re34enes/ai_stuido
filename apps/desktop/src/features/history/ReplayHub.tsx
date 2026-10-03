@@ -8,11 +8,10 @@ import { useMemo } from "react";
 import { Link } from "react-router";
 
 import { useNow } from "@/hooks/useNow";
-import { relativeTime } from "@/i18n/format";
 import { isMissingEndpoint } from "@/lib/connection";
 import { useCurrentWorkspace } from "@/lib/workspace";
 import { stagger, variants } from "@/motion/tokens";
-import { agentDotStatus, Badge, cn, EmptyState, ProviderMark, Skeleton, StatusDot, uiStrings, type DotStatus } from "@/ui";
+import { agentDotStatus, Badge, cn, type DotStatus, EmptyState, ProviderMark, RelativeTime, Skeleton, StatusDot, uiStrings } from "@/ui";
 
 import { useSessions } from "../sessions/api";
 import { ErrorState, PageColumn } from "../sessions/kit/Page";
@@ -85,9 +84,7 @@ function RunRow({ task, now }: { task: EngineTask; now: number }) {
           )}
         </span>
       </div>
-      <time dateTime={task.updated_at} className="shrink-0 text-2xs text-fg-faint">
-        {relativeTime(task.updated_at, new Date(now))}
-      </time>
+      <RelativeTime value={task.updated_at} now={now} className="shrink-0 text-2xs text-fg-faint" />
       <ChevronRight className="size-4 shrink-0 text-fg-faint opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
     </>
   );
@@ -162,9 +159,7 @@ export function ReplayHub() {
                       </span>
                     </div>
                     {s.origin !== "created" && <Badge variant="outline">{sessionStrings.origin[s.origin]}</Badge>}
-                    <time dateTime={s.updated_at} className="shrink-0 text-2xs text-fg-faint">
-                      {relativeTime(s.updated_at, new Date(now))}
-                    </time>
+                    <RelativeTime value={s.updated_at} now={now} className="shrink-0 text-2xs text-fg-faint" />
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-full text-fg-faint transition-colors group-hover:bg-accent-soft group-hover:text-accent">
                       <Play className="size-3 fill-current" aria-hidden />
                     </span>

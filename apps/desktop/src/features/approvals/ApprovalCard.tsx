@@ -29,12 +29,12 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKe
 import { Link } from "react-router";
 
 import { useNow } from "@/hooks/useNow";
-import { formatDateTime, formatDuration, relativeTime } from "@/i18n/format";
+import { formatDateTime, formatDuration } from "@/i18n/format";
 import { ApiError } from "@/lib/api";
 import type { Approval, ApprovalKind } from "@/lib/types";
 import { useShake } from "@/motion/hooks";
 import { spring, variants } from "@/motion/tokens";
-import { Badge, Button, cn, EnvBadge, Input, isTypingTarget, Kbd, MarkdownView, Textarea, toast } from "@/ui";
+import { Badge, Button, cn, EnvBadge, Input, isTypingTarget, Kbd, MarkdownView, RelativeTime, Textarea, toast } from "@/ui";
 
 import { InlineCode } from "../sessions/kit/InlineCode";
 import { useDecide, useTaskTitle, type ApprovalRecord } from "./api";
@@ -399,9 +399,7 @@ function CompactCard({
                 {s.severity.critical}
               </Badge>
             )}
-            <time dateTime={approval.created_at} className="ml-auto shrink-0 text-fg-faint" title={formatDateTime(approval.created_at)}>
-              {relativeTime(approval.created_at, new Date(now))}
-            </time>
+            <RelativeTime value={approval.created_at} now={now} className="ml-auto shrink-0 text-fg-faint" />
           </div>
           <h3 className="font-sans text-sm leading-5 font-medium text-fg [overflow-wrap:anywhere]">
             <InlineCode text={approval.title} />
@@ -520,9 +518,7 @@ function FullCard({ approval, d, scope, className }: { approval: ApprovalRecord;
               </Meta>
             )}
             <Meta label={s.meta.created}>
-              <time dateTime={approval.created_at} title={formatDateTime(approval.created_at)}>
-                {relativeTime(approval.created_at, new Date(now))}
-              </time>
+              <RelativeTime value={approval.created_at} now={now} />
             </Meta>
             {approval.expires_at && d.pending && <ExpiresIn at={approval.expires_at} />}
           </div>

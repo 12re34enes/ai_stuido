@@ -4,9 +4,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 
 import { useNow } from "@/hooks/useNow";
-import { formatDateTime, relativeTime } from "@/i18n/format";
+import { formatDateTime } from "@/i18n/format";
 import { spring, stagger, variants } from "@/motion/tokens";
-import { Badge, Button, cn, Dialog, DiffView, EmptyState, Select, Skeleton, SkeletonText, Tooltip } from "@/ui";
+import { Badge, Button, cn, Dialog, DiffView, EmptyState, RelativeTime, Select, Skeleton, SkeletonText, Tooltip } from "@/ui";
 
 import { fetchStudioVersion, studioKeys, useStudioVersions } from "../api";
 import { studioStrings as s } from "../strings";
@@ -79,7 +79,7 @@ export function VersionHistory({ studioId, onRestore, onLoad }: VersionHistoryPr
                   <span className={cn("truncate text-xs", v.note ? "text-fg" : "text-fg-faint")}>{v.note || (v.builtin ? s.builtinOriginal : "—")}</span>
                   {v.created_at && (
                     <Tooltip content={formatDateTime(v.created_at)} side="left">
-                      <span className="w-fit text-2xs text-fg-faint">{relativeTime(v.created_at, new Date(now))}</span>
+                      <RelativeTime value={v.created_at} now={now} className="w-fit text-2xs text-fg-faint" />
                     </Tooltip>
                   )}
                 </span>

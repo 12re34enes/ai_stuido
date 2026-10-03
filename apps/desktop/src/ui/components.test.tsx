@@ -13,6 +13,7 @@ import { EnvBadge } from "./EnvBadge";
 import { LimitBar } from "./LimitBar";
 import { LogView } from "./LogView";
 import { MarkdownView } from "./MarkdownView";
+import { RelativeTime } from "./RelativeTime";
 import { SegmentedControl } from "./SegmentedControl";
 import { StatusDot } from "./StatusDot";
 import { Switch } from "./Switch";
@@ -172,5 +173,22 @@ describe("text views", () => {
     });
     expect(ta.style.overflowY).toBe("auto");
     expect(parseFloat(ta.style.height)).toBeGreaterThan(0);
+  });
+});
+
+describe("RelativeTime", () => {
+  it("shows the relative label with the exact time on hover", async () => {
+    const now = Date.parse("2026-10-03T12:00:00Z");
+    renderUI(<RelativeTime value="2026-10-03T11:57:00Z" now={now} />);
+    const time = screen.getByText(/önce/);
+    expect(time.tagName).toBe("TIME");
+    expect(time.getAttribute("datetime")).toBe("2026-10-03T11:57:00.000Z");
+    await userEvent.hover(time);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("2026");
+  });
+
+  it("renders nothing for an invalid date", () => {
+    const { container } = renderUI(<RelativeTime value="yok" now={0} />);
+    expect(container.querySelector("time")).toBeNull();
   });
 });

@@ -3,10 +3,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { Link } from "react-router";
 
 import { useNow } from "@/hooks/useNow";
-import { relativeTime } from "@/i18n/format";
 import { isMissingEndpoint } from "@/lib/connection";
 import { stagger, variants } from "@/motion/tokens";
-import { EmptyState, Skeleton, StatusDot, type DotStatus } from "@/ui";
+import { type DotStatus, EmptyState, RelativeTime, Skeleton, StatusDot } from "@/ui";
 
 import { useStudioTasks } from "../api";
 import { studioStrings as s } from "../strings";
@@ -35,7 +34,7 @@ function TaskRow({ task, studioId, now }: { task: Task; studioId: string; now: n
         <StatusDot status={dot[task.status] ?? "idle"} size={10} label={s.taskStatus[task.status] ?? task.status} />
         <span className="min-w-0 flex-1 truncate text-sm text-fg">{task.title}</span>
         <span className="shrink-0 text-2xs text-fg-muted">{s.taskStatus[task.status] ?? task.status}</span>
-        <span className="w-20 shrink-0 text-right text-2xs text-fg-faint tabular">{relativeTime(task.updated_at, new Date(now))}</span>
+        <RelativeTime value={task.updated_at} now={now} className="w-20 shrink-0 text-right text-2xs text-fg-faint tabular" />
         <span
           aria-hidden
           title={readable ? s.readOutput : s.openTask}

@@ -4,10 +4,9 @@ import { createElement, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { useNow } from "@/hooks/useNow";
-import { formatDateTime, relativeTime } from "@/i18n/format";
 import { ApiError } from "@/lib/api";
 import { spring, transition, variants } from "@/motion/tokens";
-import { Badge, Button, cn, DiffView, Textarea, toast, Tooltip } from "@/ui";
+import { Badge, Button, cn, DiffView, RelativeTime, Textarea, toast, Tooltip } from "@/ui";
 
 import { LazyCodeEditor } from "@/features/studios/code/LazyCodeEditor";
 import { useDebounced } from "@/features/studios/hooks";
@@ -82,7 +81,7 @@ export function ProposalCard({ proposal, ws, defaultExpanded = false, onDecide }
               <span className="text-success">+{stats.added}</span> <span className="text-danger">−{stats.removed}</span>
             </span>
             <span className="text-fg-faint">·</span>
-            <span title={formatDateTime(proposal.created_at)}>{relativeTime(proposal.created_at, new Date(now))}</span>
+            <RelativeTime value={proposal.created_at} now={now} />
             {proposal.source_session_id && (
               <>
                 <span className="text-fg-faint">·</span>
@@ -159,7 +158,7 @@ export function ProposalCard({ proposal, ws, defaultExpanded = false, onDecide }
               {s.commit} <span className="font-mono text-fg">{proposal.commit_sha.slice(0, 8)}</span>
             </span>
           )}
-          {proposal.decided_at && <span>{relativeTime(proposal.decided_at, new Date(now))}</span>}
+          {proposal.decided_at && <RelativeTime value={proposal.decided_at} now={now} />}
           {proposal.note && (
             <span className="min-w-0 flex-1 truncate" title={proposal.note}>
               {s.noteLabel}: <span className="text-fg">{proposal.note}</span>
