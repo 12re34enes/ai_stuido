@@ -127,4 +127,5 @@ def test_health_discover_and_import(api: Api) -> None:
         "agent.message",
         "agent.session.imported",
     ]
-    assert client.get("/api/agents/discover", params={"host_id": "host_x"}).status_code == 503
+    # Unknown host: the remote module answers 404 (503 only when the remote module is absent).
+    assert client.get("/api/agents/discover", params={"host_id": "host_x"}).status_code == 404

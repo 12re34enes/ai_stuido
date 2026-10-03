@@ -79,6 +79,7 @@ def create_app(ctx: AppContext, token: str, modules: list[Module] | None = None)
         openapi_url="/api/openapi.json",
     )
     app.state.ctx = ctx
+    app.state.token = token  # module websocket routes (e.g. remote terminal) authenticate with it
 
     @app.middleware("http")
     async def auth_and_origin(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
