@@ -239,7 +239,7 @@ export const setStrings = {
       { title: "“Her zaman izin ver” yok", body: "Production için kalıcı izin verilemez; production kapıları kapatılamaz." },
       { title: "Onaylar uygulamadan", body: "Production onayları varsayılan olarak yalnız uygulamadan verilir." },
     ],
-    remoteTitle: "Production onaylarını kanallardan verme",
+    remoteTitle: "Kanallardan production onayına izin ver",
     remoteBody: "Açılırsa production onayları Telegram ve Slack'ten de verilebilir. Yalnız bağlanmış kullanıcı kimliği onay verebilir ve ikinci bir doğrulama istenir.",
     on: "Kanallara açık",
     off: "Yalnız uygulamadan",

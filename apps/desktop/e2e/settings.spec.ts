@@ -378,7 +378,7 @@ test("alerts: rule editor builds event types, severity and channels", async ({ p
 test("safety: enabling channel approvals requires a strong confirmation", async ({ page }) => {
   const { api } = await installSettings(page);
   await open(page, "/settings/safety");
-  await page.getByRole("switch", { name: "Production onaylarını kanallardan verme" }).click();
+  await page.getByRole("switch", { name: "Kanallardan production onayına izin ver" }).click();
   const dialog = page.getByRole("dialog", { name: "Production onaylarını kanallara aç" });
   await expect(dialog).toBeVisible();
   const confirm = dialog.getByRole("button", { name: "Kanallara aç" });
@@ -393,7 +393,7 @@ test("safety: enabling channel approvals requires a strong confirmation", async 
   await expect.poll(() => api.state.settings["safety.remote_production_approvals"]).toBe(true);
   await expect(page.getByText("Kanallara açık")).toBeVisible();
   // Turning it off needs no ceremony.
-  await page.getByRole("switch", { name: "Production onaylarını kanallardan verme" }).click();
+  await page.getByRole("switch", { name: "Kanallardan production onayına izin ver" }).click();
   await expect.poll(() => api.state.settings["safety.remote_production_approvals"]).toBe(false);
 });
 
