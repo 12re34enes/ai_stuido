@@ -29,7 +29,8 @@ export default defineConfig({
     strictPort: true,
     // Browser dev: same-origin proxy that injects the dev token (Tauri talks to studiod directly).
     proxy: {
-      "/api": { target, changeOrigin: true, headers: { Authorization: `Bearer ${devToken}` } },
+      // ws: module websockets under /api (remote terminal) go through the same proxy.
+      "/api": { target, changeOrigin: true, ws: true, headers: { Authorization: `Bearer ${devToken}` } },
       "/ws": { target: target.replace("http", "ws"), ws: true, headers: { Authorization: `Bearer ${devToken}` } },
     },
     watch: { ignored: ["**/src-tauri/**"] },

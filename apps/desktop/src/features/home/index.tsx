@@ -29,6 +29,7 @@ import { RecentTasks } from "./RecentTasks";
 import { Section } from "./Section";
 import { homeStrings as s } from "./strings";
 import { useWorkspaceApprovals } from "./approvals";
+import { useNewTaskParam } from "./useNewTaskParam";
 import { WaitingForYou } from "./WaitingForYou";
 
 installTaskCommands();
@@ -136,6 +137,7 @@ export default function HomePage() {
   const [onboarding, setOnboarding] = useState(false);
   const [finished, setFinished] = useState<string | null>(null);
   useTaskLiveSync(workspace?.id);
+  useNewTaskParam();
 
   let view: "loading" | "error" | "onboarding" | "main";
   if (query.isPending) view = "loading";

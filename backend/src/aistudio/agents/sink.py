@@ -92,6 +92,15 @@ class SessionSink:
             etype, data, severity=payload_severity(payload, closing=live.closing), actor=live.actor, **live.ids()
         )
         changes = self._apply(payload)
+        if "state" in changes and not isinstance(payload, StatusChanged):
+            # State moved implicitly (turn started/completed, session ended): publish it too, so
+            # status indicators never depend on the adapter also emitting StatusChanged.
+            await self._ctx.events.append(
+                PAYLOAD_EVENT_TYPE[StatusChanged],
+                {"state": changes["state"].value, "detail": None, "implicit": True},
+                actor=live.actor,
+                **live.ids(),
+            )
         if changes:
             await self._repo.update(live.id, **changes)
         if isinstance(payload, SessionEnded):

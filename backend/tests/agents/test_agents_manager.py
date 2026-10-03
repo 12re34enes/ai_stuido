@@ -494,3 +494,18 @@ async def stalled(env: AgentsEnv, session_id: str) -> list[Event]:
 
 async def _count_stalled(env: AgentsEnv, session_id: str, n: int) -> bool:
     return len(await stalled(env, session_id)) >= n
+
+
+
+async def test_implicit_state_changes_are_published(agents_env: AgentsEnv) -> None:
+    """A turn that completes without the adapter emitting StatusChanged still yields agent.status
+    events, so status dots never go stale."""
+    env = agents_env
+    rec = await start(env)
+    sink = env.claude.last.sink
+    await sink.emit(TurnStarted(turn_id="tx", input="selam"))
+    await sink.emit(TurnCompleted(turn_id="tx", status="success", result_text="tamam"))
+    statuses = [e.payload for e in await events(env, rec.id) if e.type == "agent.status"]
+    implicit = [p["state"] for p in statuses if p.get("implicit")]
+    assert implicit[-2:] == ["thinking", "idle"]
+    assert (await env.manager.get(rec.id)).state == AgentState.idle
