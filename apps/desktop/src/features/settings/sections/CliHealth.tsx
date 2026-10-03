@@ -6,7 +6,7 @@ import { stagger, variants } from "@/motion/tokens";
 import { Badge, Button, cn, CodeBlock, EmptyState, ProviderMark, Select, Skeleton, uiStrings } from "@/ui";
 
 import { useHosts } from "@/features/connections/api";
-import { ErrorState, Section } from "@/features/connections/kit";
+import { EnvIcon, ErrorState, Section } from "@/features/connections/kit";
 
 import { useHealth } from "../api";
 import { SectionPage } from "../kit";
@@ -124,7 +124,7 @@ export function CliHealthSection() {
               value={hostId || undefined}
               placeholder={c.hostPick}
               onValueChange={setHostId}
-              options={hostList.map((h) => ({ value: h.id, label: h.name, description: `${h.username}@${h.hostname}` }))}
+              options={hostList.map((h) => ({ value: h.id, label: h.name, description: `${h.username}@${h.hostname}`, icon: <EnvIcon environment={h.environment} /> }))}
             />
           )
         }

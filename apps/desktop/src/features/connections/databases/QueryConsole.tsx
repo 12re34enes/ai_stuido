@@ -1,4 +1,5 @@
 import { Hourglass, Inbox, Play, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -6,7 +7,7 @@ import { useNavigate } from "react-router";
 import { variants } from "@/motion/tokens";
 import { Badge, Button, cn, Input, isMacPlatform, Kbd, Select, Spinner } from "@/ui";
 
-import { useClassify, useRunQuery } from "../api";
+import { classifyQuery, useClassify, useRunQuery } from "../api";
 import { Callout, ClassBadge, errorMessage, useDebounced } from "../kit";
 import { classifyLanguageFor, consoleFamily, policyExpectation } from "../logic";
 import { connStrings as s } from "../strings";
@@ -26,6 +27,7 @@ const expectationText = { success: "text-success", warning: "text-warning", dang
  */
 export function QueryConsole({ db }: { db: DbProfile }) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [text, setText] = useState("");
   const [reason, setReason] = useState("");
   const [maxRows, setMaxRows] = useState<(typeof MAX_ROWS)[number]>("500");
@@ -40,9 +42,18 @@ export function QueryConsole({ db }: { db: DbProfile }) {
   const ExpIcon = expectation ? expectationIcon[expectation.tone] : null;
   const mod = isMacPlatform() ? "⌘" : "Ctrl";
 
-  const submit = () => {
+  const submit = async () => {
     if (!text.trim() || run.isPending) return;
-    const approval = expectation?.action === "approve";
+    // Classify exactly what is about to run (the live preview is debounced).
+    let klass = debounced === text ? cls?.klass : undefined;
+    if (!klass) {
+      try {
+        klass = (await qc.fetchQuery(classifyQuery(language, dialect, text))).klass;
+      } catch {
+        klass = "unknown";
+      }
+    }
+    const approval = policyExpectation(db.environment, db.permission_level, klass).action === "approve";
     setLast({ approval });
     run.mutate(
       { id: db.id, query: text, reason: reason.trim() || undefined, maxRows: Number(maxRows) },
@@ -84,7 +95,7 @@ export function QueryConsole({ db }: { db: DbProfile }) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
-              submit();
+              void submit();
             }
           }}
           rows={Math.min(18, Math.max(6, text.split("\n").length + 1))}
@@ -123,7 +134,7 @@ export function QueryConsole({ db }: { db: DbProfile }) {
           <span className="hidden items-center gap-1 text-2xs text-fg-faint lg:flex">
             <Kbd keys={[mod, "↵"]} />
           </span>
-          <Button variant="primary" size="md" icon={<Play />} disabled={!text.trim()} loading={run.isPending} onClick={submit}>
+          <Button variant="primary" size="md" icon={<Play />} disabled={!text.trim()} loading={run.isPending} onClick={() => void submit()}>
             {c.run}
           </Button>
         </div>

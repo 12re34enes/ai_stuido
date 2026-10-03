@@ -5,7 +5,7 @@ export { errorMessage } from "./errors";
 export { ConfirmDialog, type ConfirmDialogProps } from "./ConfirmDialog";
 export { SecretField, type SecretFieldProps } from "./SecretField";
 export { KEEP, secretPayload, type SecretDraft } from "./secret";
-export { ClassBadge, PermissionBadge, RunStatusBadge, TargetIcon } from "./badges";
+export { ClassBadge, EnvIcon, PermissionBadge, RunStatusBadge, TargetIcon } from "./badges";
 export { EnvGroups, TargetRow } from "./TargetRow";
 export { useDebounced, useScrollTopOnMount } from "./hooks";
 export { EnvironmentPicker, FormGroupLabel, PermissionPicker } from "./pickers";

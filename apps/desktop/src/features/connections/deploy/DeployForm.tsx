@@ -7,7 +7,7 @@ import { stagger, variants } from "@/motion/tokens";
 import { Button, Checkbox, cn, EnvBadge, Field, Input, SegmentedControl, Select, Sheet, Switch, Textarea, toast } from "@/ui";
 
 import { useSaveDeployProfile, useWorkspaceRepos } from "../api";
-import { Callout, EnvironmentPicker, errorMessage, FormGroupLabel } from "../kit";
+import { Callout, EnvIcon, EnvironmentPicker, errorMessage, FormGroupLabel } from "../kit";
 import { deployFormDefaults, deployPayload, hasErrors, validateDeploy, type DeployFormValues } from "../logic";
 import { connStrings as s } from "../strings";
 import type { DeployKind, DeployProfile, DeployProfileCreate, DeployProfileUpdate, Host } from "../types";
@@ -230,7 +230,7 @@ export function DeployFormSheet({ open, onOpenChange, profile, hosts }: { open: 
                     aria-label={f.healthHost}
                     value={v.healthHostId}
                     onValueChange={(x) => set("healthHostId", x)}
-                    options={[{ value: "", label: f.healthHostLocal }, ...hosts.map((h) => ({ value: h.id, label: h.name }))]}
+                    options={[{ value: "", label: f.healthHostLocal }, ...hosts.map((h) => ({ value: h.id, label: h.name, icon: <EnvIcon environment={h.environment} /> }))]}
                   />
                 </Field>
               </motion.div>

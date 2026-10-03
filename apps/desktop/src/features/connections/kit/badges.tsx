@@ -4,6 +4,9 @@ import {
   CheckCircle2,
   CircleDashed,
   Eye,
+  FlaskConical,
+  Laptop,
+  ShieldAlert,
   Hourglass,
   Loader2,
   PencilLine,
@@ -72,6 +75,15 @@ export function TargetIcon({ environment, icon, size = 32, className }: { enviro
       {icon}
     </span>
   );
+}
+
+const envIconComp = { local: Laptop, test: FlaskConical, production: ShieldAlert };
+const envIconClass = { local: "text-env-local", test: "text-env-test", production: "text-env-production" };
+
+/** Small environment glyph for menus and selects (production stays recognisable everywhere). */
+export function EnvIcon({ environment }: { environment: Environment }) {
+  const Icon = envIconComp[environment];
+  return <Icon className={envIconClass[environment]} strokeWidth={2.25} aria-label={s.environment.group[environment]} />;
 }
 
 const runTone: Record<DeployRunStatus, "warning" | "info" | "success" | "danger" | "neutral"> = {

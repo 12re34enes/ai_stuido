@@ -99,7 +99,7 @@ export default function MenubarWindow() {
 
   return (
     <WindowSurface>
-      <header data-tauri-drag-region className="flex h-12 shrink-0 items-center gap-2.5 border-b border-line-subtle pr-2 pl-4">
+      <header className="flex h-12 shrink-0 items-center gap-2.5 border-b border-line-subtle pr-2 pl-4">
         <span className="grid size-6 place-items-center rounded-[7px] bg-accent text-xs text-fg-on-accent" aria-hidden>
           ✦
         </span>

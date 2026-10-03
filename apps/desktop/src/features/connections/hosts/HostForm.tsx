@@ -7,7 +7,7 @@ import { variants } from "@/motion/tokens";
 import { Button, Field, Input, SegmentedControl, Select, Sheet, toast } from "@/ui";
 
 import { useSaveHost } from "../api";
-import { Callout, EnvironmentPicker, errorMessage, FormGroupLabel, KEEP, PermissionPicker, SecretField, secretPayload, type SecretDraft } from "../kit";
+import { Callout, EnvIcon, EnvironmentPicker, errorMessage, FormGroupLabel, KEEP, PermissionPicker, SecretField, secretPayload, type SecretDraft } from "../kit";
 import { hasErrors, parseLines, parsePort, validateHost, type HostFormValues } from "../logic";
 import { connStrings as s } from "../strings";
 import type { Host, HostAuth, HostCreate, HostUpdate } from "../types";
@@ -45,7 +45,7 @@ export function HostFormSheet({ open, onOpenChange, host, hosts }: { open: boole
   const shown = submitted ? errors : {};
   const jumpOptions = [
     { value: "", label: f.jumpHostNone },
-    ...hosts.filter((h) => h.id !== host?.id).map((h) => ({ value: h.id, label: h.name, description: `${h.username}@${h.hostname}` })),
+    ...hosts.filter((h) => h.id !== host?.id).map((h) => ({ value: h.id, label: h.name, description: `${h.username}@${h.hostname}`, icon: <EnvIcon environment={h.environment} /> })),
   ];
 
   const submit = () => {

@@ -6,7 +6,7 @@ import { variants } from "@/motion/tokens";
 import { Button, Field, Input, Select, Sheet, toast } from "@/ui";
 
 import { useSaveDbProfile } from "../api";
-import { Callout, EnvironmentPicker, errorMessage, FormGroupLabel, KEEP, PermissionPicker, SecretField, secretPayload, type SecretDraft } from "../kit";
+import { Callout, EnvIcon, EnvironmentPicker, errorMessage, FormGroupLabel, KEEP, PermissionPicker, SecretField, secretPayload, type SecretDraft } from "../kit";
 import { DEFAULT_DB_PORTS, hasErrors, parseLines, parsePort, validateDb, type DbFormValues } from "../logic";
 import { connStrings as s } from "../strings";
 import type { DbKind, DbProfile, DbProfileCreate, DbProfileUpdate, Host } from "../types";
@@ -171,7 +171,7 @@ export function DbFormSheet({ open, onOpenChange, db, hosts }: { open: boolean; 
                     aria-label={f.tunnel}
                     value={v.viaHostId}
                     onValueChange={(x) => set("viaHostId", x)}
-                    options={[{ value: "", label: f.tunnelNone }, ...hosts.map((h) => ({ value: h.id, label: h.name, description: `${h.username}@${h.hostname}` }))]}
+                    options={[{ value: "", label: f.tunnelNone }, ...hosts.map((h) => ({ value: h.id, label: h.name, description: `${h.username}@${h.hostname}`, icon: <EnvIcon environment={h.environment} /> }))]}
                   />
                 </Field>
               </motion.div>

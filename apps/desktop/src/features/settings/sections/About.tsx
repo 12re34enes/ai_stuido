@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { BellRing, FolderOpen } from "lucide-react";
 import { motion } from "motion/react";
 
-import { formatNumber } from "@/i18n/format";
 import { stagger, variants } from "@/motion/tokens";
 import { backendStatus, getShellStatus, isTauri, openNotificationSettings, revealInFinder } from "@/native";
 import { Badge, Button, IconButton, Skeleton } from "@/ui";
@@ -59,7 +58,7 @@ export function AboutSection() {
               items={[
                 { label: t.version, value: system.data.version, mono: true },
                 { label: t.mode, value: system.data.dev ? t.dev : t.prod },
-                { label: t.lastEvent, value: `#${formatNumber(system.data.last_event_id)}`, mono: true },
+                { label: t.lastEvent, value: `#${system.data.last_event_id}`, mono: true },
               ]}
             />
             <div className="flex flex-col gap-2 px-4 py-3.5">

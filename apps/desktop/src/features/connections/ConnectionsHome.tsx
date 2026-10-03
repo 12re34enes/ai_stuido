@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { ReactNode } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
 
+import { isMissingEndpoint } from "@/lib/connection";
 import { variants } from "@/motion/tokens";
 import { Button, CountBadge, Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui";
 
@@ -32,6 +33,14 @@ export function ConnectionsHome() {
   const git = useGitAccounts();
   if (tab !== undefined && !isTab(tab)) return <Navigate to="/connections/hosts" replace />;
   const current: ConnectionsTab = tab ?? "hosts";
+  // No create actions for features this studiod does not have yet (the tab explains why).
+  const missing: Record<ConnectionsTab, boolean> = {
+    hosts: isMissingEndpoint(hosts.error),
+    databases: isMissingEndpoint(dbs.error),
+    deploy: isMissingEndpoint(deploys.error),
+    git: isMissingEndpoint(git.error),
+    audit: false,
+  };
 
   const actions: Record<ConnectionsTab, ReactNode> = {
     hosts: (
@@ -86,7 +95,7 @@ export function ConnectionsHome() {
           </TabsList>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.div key={current} {...variants.fade} className="absolute right-0 bottom-1 flex items-center gap-2">
-              {actions[current]}
+              {missing[current] ? null : actions[current]}
             </motion.div>
           </AnimatePresence>
         </div>

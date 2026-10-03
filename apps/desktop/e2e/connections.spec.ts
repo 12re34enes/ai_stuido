@@ -677,3 +677,27 @@ for (const scheme of ["light", "dark"] as const) {
     await expect(page.getByText("Oturum kapandı (çıkış kodu 0).")).toBeVisible();
   });
 }
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`empty lists and endpoints the engine does not have yet (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await installConnections(page, (c) => {
+      c.hosts = [];
+      c.dbs = [];
+      c.audit = [];
+    });
+    // Deploy not built into this studiod: the tab explains instead of erroring.
+    await page.route("**/api/deploy/**", (route) => route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: { code: "not_found", message: "Bulunamadı" } }) }));
+    await open(page, "/connections/hosts");
+    await expect(page.getByText("Henüz host yok")).toBeVisible();
+    await expect(page.getByRole("main").getByRole("button", { name: "~/.ssh/config'ten içe aktar" })).toHaveCount(2);
+    await settle(page, 800);
+    await page.screenshot({ path: shot(`hosts-empty-${scheme}`) });
+    await page.getByRole("tab", { name: /Deploy/ }).click();
+    await expect(page.getByText("Bu özellik motorda henüz yok")).toBeVisible();
+    await settle(page, 800);
+    await page.screenshot({ path: shot(`deploy-unavailable-${scheme}`) });
+    await page.getByRole("tab", { name: /Denetim kaydı/ }).click();
+    await expect(page.getByText("Henüz kayıt yok")).toBeVisible();
+  });
+}

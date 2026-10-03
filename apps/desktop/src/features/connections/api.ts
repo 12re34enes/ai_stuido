@@ -204,10 +204,18 @@ export function useRunQuery() {
   });
 }
 
+/** Query options for a classification (shared by the live preview and the pre-run check). */
+export function classifyQuery(language: ClassifyLanguage, dialect: SqlDialect, text: string) {
+  return {
+    queryKey: ["connections", "classify", language, dialect, text] as const,
+    queryFn: () => api.post<ClassifyResponse>("/remote/classify", { language, dialect, text }),
+    staleTime: Infinity,
+  };
+}
+
 export function useClassify(language: ClassifyLanguage, dialect: SqlDialect, text: string) {
   return useQuery({
-    queryKey: ["connections", "classify", language, dialect, text],
-    queryFn: () => api.post<ClassifyResponse>("/remote/classify", { language, dialect, text }),
+    ...classifyQuery(language, dialect, text),
     enabled: text.trim().length > 0,
     retry: false,
     staleTime: Infinity,
