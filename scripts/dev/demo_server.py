@@ -24,6 +24,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import demo_team  # sibling module: scripts/dev is sys.path[0] when run as a script
 import httpx
 import uvicorn
 
@@ -83,6 +84,8 @@ def claude_scenario() -> dict[str, Any]:
     base["model"] = "claude-opus-5-5"
     # Rich fixture turn first (tool calls, permission, edit, Claude rate limits), then plan-carrying turns.
     base["turns"] = [*base["turns"], turn, turn, turn, turn, turn]
+    # Team members and the subagent demo session pick their own script by system prompt.
+    base["by_system_prompt"] = {**demo_team.claude_team_overrides(), **demo_team.claude_subagent_override()}
     return base
 
 
@@ -111,6 +114,7 @@ def codex_scenario() -> dict[str, Any]:
         "model": "gpt-5.5-codex",
         "rateLimits": {"rateLimits": limits, "rateLimitsByLimitId": {"codex": limits}},
         "turnScripts": [turn] * 8,
+        "byInstructions": demo_team.codex_team_overrides(),
     }
 
 
@@ -258,6 +262,54 @@ async def seed(api: httpx.AsyncClient) -> None:
             "config": {"command": "echo deploy tamam"},
         },
     )
+    # 4) Ekip: a saved team template and a team task driven to completion (real merges).
+    await api.post(
+        "/engine/teams",
+        json={
+            "workspace_id": ws["id"],
+            "name": "Ödeme ekibi",
+            "description": "Danışman, lider, üç geliştirici, iki alt ajan ve iki test ajanı.",
+            "spec": demo_team.TEAM_SPEC,
+        },
+    )
+    team_task = (
+        await api.post(
+            "/engine/tasks",
+            json={"workspace_id": ws["id"], **demo_team.TEAM_TASK, "mode": "team", "team": demo_team.TEAM_SPEC},
+        )
+    ).json()["task"]
+
+    async def team_done() -> bool:
+        await auto_approve_tools()
+        for a in (await api.get("/approvals", params={"task_id": team_task["id"], "kind": "final"})).json():
+            await api.post(f"/approvals/{a['id']}/decision", json={"approve": True, "note": "Ekip iyi iş çıkardı."})
+        task = (await api.get(f"/engine/tasks/{team_task['id']}")).json()["task"]
+        if task["status"] in ("failed", "cancelled"):
+            raise RuntimeError(f"demo team task {task['status']}: {task.get('error')}")
+        return task["status"] == "completed"
+
+    await wait_for(team_done, timeout=180, what="team task")
+
+    # 5) A plain session whose CLI spawns its own (native) subagents.
+    session = (
+        await api.post(
+            "/agents/sessions",
+            json={
+                "workspace_id": ws["id"],
+                "label": "Araştırma ajanı",
+                "spec": {"provider": "claude", "cwd": repo["path"], "system_append": demo_team.SUBAGENT_KEY + "."},
+                "initial_prompt": "Test kapsamını çıkar: test dosyalarını bul, eksik senaryoları listele ve bir özet yaz.",
+            },
+        )
+    ).json()
+
+    async def subagents_settled() -> bool:
+        await auto_approve_tools()
+        subs = (await api.get(f"/agents/sessions/{session['id']}/subagents")).json()
+        return bool(subs) and all(sub["status"] != "running" for sub in subs)
+
+    await wait_for(subagents_settled, timeout=60, what="native subagents")
+
     with contextlib.suppress(Exception):
         await api.post("/limits/refresh")
 

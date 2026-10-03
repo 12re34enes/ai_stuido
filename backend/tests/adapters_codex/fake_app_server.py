@@ -17,6 +17,8 @@ Scenario keys (all optional)::
     rateLimits         GetAccountRateLimitsResponse
     afterInitialize    [step]            run right after the initialized notification
     turnScripts        [[step]]          one script per turn/start, in order
+    byInstructions     {text: {...}}     the first entry whose key occurs in thread/start's
+                                         developerInstructions overrides top-level keys
 
 Steps (strings "$THREAD", "$TURN", "$CWD", "$TOOL_TEXT", "$TOOL_SUCCESS" are substituted)::
 
@@ -32,6 +34,7 @@ Steps (strings "$THREAD", "$TURN", "$CWD", "$TOOL_TEXT", "$TOOL_SUCCESS" are sub
     {"waitSteer": true}        wait for turn/steer, then emit the steered userMessage item
     {"waitInterrupt": true}    block until turn/interrupt (which completes the turn as interrupted)
     {"sleep": ms}
+    {"write": {"path", "content"}}   really write a file (path relative to the thread cwd)
     {"raw": "text"}            write a raw (malformed) line
     {"crash": code, "stderr": "..."}
     {"complete": {"status": "failed", "error": {...}}}
@@ -257,6 +260,12 @@ class FakeServer:
                 await asyncio.Event().wait()
             elif "sleep" in step:
                 await asyncio.sleep(step["sleep"] / 1000)
+            elif "write" in step:  # really write a file under the thread's cwd
+                root = self.thread["cwd"] if self.thread else self.cwd
+                path = os.path.join(root, step["write"]["path"])
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(step["write"].get("content", ""))
             elif "raw" in step:
                 sys.stdout.write(step["raw"] + "\n")
                 sys.stdout.flush()
@@ -383,6 +392,11 @@ class FakeServer:
                 "platformOs": "macos",
             }
         if method == "thread/start":
+            instructions = str(params.get("developerInstructions") or "")
+            for key, override in SCENARIO.get("byInstructions", {}).items():
+                if key in instructions:
+                    SCENARIO.update(override)
+                    break
             model = params.get("model") or SCENARIO.get("model", "gpt-5.5")
             self.thread = make_thread(
                 SCENARIO.get("threadId") or new_uuid(), params.get("cwd") or self.cwd, model=model

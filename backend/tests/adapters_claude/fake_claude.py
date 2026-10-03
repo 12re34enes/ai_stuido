@@ -12,12 +12,16 @@ Scenario format::
       "mcp_handshake": true,              # MCP initialize/tools-list over mcp_message after initialize
       "after_initialize": [step, ...],    # output the CLI produces on its own (no user turn)
       "model": "claude-sonnet-4-5",
-      "turns": [[step, ...], ...]         # one list per user turn
+      "turns": [[step, ...], ...],        # one list per user turn
+      "by_system_prompt": {"<text>": {...}}   # optional: the first entry whose key occurs in
+                                          # --append-system-prompt overrides top-level keys
+                                          # (one scenario file for every member of a team)
     }
 
 Steps: ``emit`` (msg), ``result`` (overrides), ``permission`` (tool, input, tool_use_id, agent_id,
 on_allow, on_deny, cancel_after), ``mcp_call`` (tool, arguments, tool_use_id), ``wait_interrupt``
-(timeout, then), ``fold``, ``sleep`` (seconds), ``raw`` (line), ``stderr`` (text), ``exit`` (code).
+(timeout, then), ``fold``, ``sleep`` (seconds), ``raw`` (line), ``stderr`` (text), ``exit`` (code),
+``write`` (path relative to the working directory, content: really writes the file).
 Strings ``$SESSION`` / ``$UUIDS`` / ``$CWD`` inside emitted messages are substituted.
 
 Everything received and decided is appended (JSON lines) to ``FAKE_CLAUDE_LOG`` if set.
@@ -328,6 +332,11 @@ class Fake:
                 self.uuids.append(self.pending_users.popleft().get("uuid", ""))
         elif op == "sleep":
             time.sleep(step.get("seconds", 0.05))
+        elif op == "write":
+            path = os.path.join(os.getcwd(), step["path"])
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(step.get("content", ""))
         elif op == "raw":
             sys.stdout.write(step["line"] + "\n")
             sys.stdout.flush()
@@ -365,6 +374,11 @@ def main() -> int:
     argv = sys.argv[1:]
     with open(os.environ["FAKE_CLAUDE_SCENARIO"], encoding="utf-8") as f:
         scenario: Json = json.load(f)
+    system = argv[argv.index("--append-system-prompt") + 1] if "--append-system-prompt" in argv[:-1] else ""
+    for key, override in scenario.get("by_system_prompt", {}).items():
+        if key in system:
+            scenario = {**scenario, **override}
+            break
     fake = Fake(argv, scenario)
     fake.log(
         {
