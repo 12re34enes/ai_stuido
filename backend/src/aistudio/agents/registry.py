@@ -17,6 +17,10 @@ class AdapterRegistryImpl:
             raise RuntimeError(f"adapter for {adapter.provider} registered twice")
         self._adapters[adapter.provider] = adapter
 
+    def replace(self, adapter: AgentAdapter) -> None:
+        """Register or swap the adapter for a provider (tests, compatibility fallbacks)."""
+        self._adapters[adapter.provider] = adapter
+
     def get(self, provider: Provider) -> AgentAdapter:
         try:
             return self._adapters[provider]
