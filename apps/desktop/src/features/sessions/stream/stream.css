@@ -1,0 +1,52 @@
+/*
+ * Session stream: the streaming caret rides the end of the last text block. Opacity only (GPU);
+ * reduced motion keeps a static caret (global rules shorten animations to 1ms).
+ */
+@keyframes session-caret {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+/* MarkdownView renders <div root> > blocks; the wrapper carries data-streaming. */
+[data-streaming="true"] > div > :is(p, h1, h2, h3, h4, h5, h6):last-child::after,
+[data-streaming="true"] > div > :is(ul, ol):last-child > li:last-child > div > p:last-child::after,
+[data-streaming="true"] > div > blockquote:last-child > p:last-child::after,
+[data-streaming="true"] > div:empty::after {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 1.05em;
+  margin-left: 0.18em;
+  border-radius: 2px;
+  vertical-align: -0.16em;
+  background: var(--caret, var(--fg-muted));
+  animation: session-caret 1.1s var(--ease-in-out) infinite;
+}
+
+[data-provider="claude"] [data-streaming="true"] {
+  --caret: var(--claude);
+}
+
+[data-provider="codex"] [data-streaming="true"] {
+  --caret: var(--codex);
+}
+
+/* Soft breathing label for live thinking / pending rows. */
+@keyframes session-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.session-breathe {
+  animation: session-breathe var(--dur-breathe) var(--ease-in-out) infinite;
+}
