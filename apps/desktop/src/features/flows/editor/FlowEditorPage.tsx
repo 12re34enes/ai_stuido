@@ -163,11 +163,16 @@ function EditorScreen({ flowId, mode = null, studio = null, blank = false }: Flo
 
   const modeLabel = useCallback((m: FlowMode) => modes.data?.find((x) => x.mode === m)?.label ?? modeLabels[m], [modes.data]);
 
-  /** Load a template pick into the canvas (new flows keep their unsaved identity). */
+  /**
+   * Load a template pick into the canvas. `fresh` (route-driven /flows/new?…) always starts a new,
+   * unsaved flow; otherwise ("Şablondan başla" inside the editor) the current flow keeps its
+   * identity and only its graph is replaced, becoming a new version on save.
+   */
   const applyPick = useCallback(
-    async (pick: TemplatePick): Promise<boolean> => {
+    async (pick: TemplatePick, opts: { fresh?: boolean } = {}): Promise<boolean> => {
       const seq = ++loadSeq.current;
-      const keep = store.getState();
+      const cur = store.getState();
+      const keep = opts.fresh ? { flowId: null, version: null, name: "" } : { flowId: cur.flowId, version: cur.version, name: cur.name };
       try {
         if (pick.type === "blank") {
           store.getState().load({ meta: { ...newMeta(keep.name || s.editor.untitled), flowId: keep.flowId, version: keep.version }, graph: emptyGraph(), dirty: true });
@@ -226,7 +231,7 @@ function EditorScreen({ flowId, mode = null, studio = null, blank = false }: Flo
     if (mode || studio) {
       if (mode && !workspaceId) return;
       const key = routeKey;
-      void applyPick(mode ? { type: "mode", mode } : { type: "studio", id: studio! }).then((ok) => setTemplateResult({ key, ok }));
+      void applyPick(mode ? { type: "mode", mode } : { type: "studio", id: studio! }, { fresh: true }).then((ok) => setTemplateResult({ key, ok }));
       return;
     }
     store.getState().load({ meta: newMeta(s.editor.untitled), graph: emptyGraph() });

@@ -510,6 +510,16 @@ test("drag a node from the palette onto the canvas", async ({ page }) => {
   await expect(page.getByTestId("flow-node-human")).toBeVisible();
   await expect(page.getByTestId("canvas-empty")).toBeHidden();
   await expect(page.getByTestId("node-inspector").getByText("Talimat", { exact: true })).toBeVisible();
+
+  // ⌘K: editor commands are registered while the editor is open.
+  await page.keyboard.press("Escape");
+  await page.keyboard.press(`${mod}+k`);
+  const palette = page.getByTestId("command-palette");
+  await expect(palette).toBeVisible();
+  await page.keyboard.type("duğum ekle kosul");
+  await expect(palette.getByRole("option", { name: /Düğüm ekle: Koşul/ })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("flow-node-condition")).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -793,6 +803,27 @@ for (const scheme of ["light", "dark"] as const) {
     expect(errors.filter((e) => !/500/.test(e))).toEqual([]);
   });
 }
+
+test("opening a template from a saved flow starts a new flow (never overwrites it)", async ({ page }) => {
+  const errors = collectErrors(page);
+  await installMockApi(page);
+  const m = await installFlowMock(page);
+  await open(page, "/flows/flow_duo");
+  await expect(page.getByTestId("flow-node-review")).toBeVisible();
+  await page.getByTestId("settings-button").click();
+  await expect(page.getByTestId("flow-settings")).toBeVisible();
+  await open(page, "/flows/new?studio=architecture");
+  await expect(page.getByTestId("flow-node-synthesis")).toBeVisible();
+  await expect(page.getByLabel("Akış adı")).toHaveValue("Mimari tasarım");
+  await expect(page.getByTestId("flow-toolbar").getByText("v3", { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("flow-settings")).toHaveCount(0);
+  await page.getByTestId("save").click();
+  await expect(page).toHaveURL(/#\/flows\/flow_new1$/);
+  expect(m.updates).toEqual([]);
+  expect(m.creates).toHaveLength(1);
+  expect((m.creates[0] as { studio_id: string }).studio_id).toBe("architecture");
+  expect(errors).toEqual([]);
+});
 
 function everyKindGraph() {
   const g = (id: string, label: string, config: Json) => ({ id, label, config, position: null });

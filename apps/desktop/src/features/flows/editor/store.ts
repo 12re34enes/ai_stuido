@@ -236,6 +236,7 @@ export function createEditorStore() {
           pendingCondition: null,
           introDelays: introDelays(nodes),
           preview: null,
+          panel: null,
         }));
       },
 
