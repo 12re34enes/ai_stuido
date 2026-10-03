@@ -1,0 +1,222 @@
+/** Turkish UI strings of the memory feature. */
+export const memoryStrings = {
+  title: "Hafıza",
+  subtitle: "Çalışma alanının ortak hafızası: her ajan aynı gerçekleri, kararları ve sınırları görür.",
+  noWorkspace: "Çalışma alanı seçilmedi",
+  noWorkspaceHint: "Hafıza her çalışma alanına aittir. Önce bir çalışma alanı oluşturun ya da seçin.",
+  loadError: "Hafıza yüklenemedi",
+  retry: "Tekrar dene",
+
+  // Navigation
+  navInbox: "Gelen kutusu",
+  navDocs: "Belgeler",
+  navTools: "Araçlar",
+  proposals: "Öneriler",
+  boundariesMap: "Sınır haritası",
+  context: "Ajan bağlamı",
+  history: "Geçmiş",
+  guide: "Rehber",
+  emptyLayer: "Henüz belge yok",
+  newDecision: "Yeni karar",
+  layers: {
+    facts: "Proje gerçekleri",
+    decisions: "Kararlar",
+    boundaries: "Sınırlar",
+    sessions: "Oturum özetleri",
+  } as Record<string, string>,
+  layerHints: {
+    facts: "Her ajanın sistem istemine girer.",
+    decisions: "Tarihli karar kayıtları; ajanlar dizinini görür.",
+    boundaries: "Ön bilgi bölümü sınır motorunu besler.",
+    sessions: "Oturum bitince önerilen özetler.",
+  } as Record<string, string>,
+
+  // Document
+  view: "Görüntüle",
+  edit: "Düzenle",
+  docHistory: "Geçmiş",
+  updated: (when: string) => `Güncellendi ${when}`,
+  docNotFound: "Belge bulunamadı",
+  docNotFoundHint: "Bu belge silinmiş ya da taşınmış olabilir.",
+  emptySection: "_Henüz yazılmamış._",
+  emptyDoc: "Bu belge boş",
+  emptyDocHint: "Düzenleyerek ilk içeriği yazın.",
+  copyPath: "Yolu kopyala",
+  status: "Durum",
+  date: "Tarih",
+  summary: "Özet",
+  boundariesNote: "Bu belgenin ön bilgi bölümü makinece okunur.",
+  openMap: "Sınır haritasını aç",
+
+  // Editor
+  commitMessage: "Commit mesajı",
+  commitPlaceholder: (path: string) => `${path} düzenlendi`,
+  save: "Kaydet",
+  saving: "Kaydediliyor…",
+  cancel: "Vazgeç",
+  saved: "Kaydedildi",
+  savedHint: (sha: string) => `Commit ${sha}`,
+  saveFailed: "Kaydedilemedi",
+  dirty: "Kaydedilmemiş değişiklikler",
+  changedElsewhere: "Bu belge siz düzenlerken başka bir yerde değişti.",
+  changedElsewhereHint: "Kaydederseniz sizin sürümünüz geçerli olur; önce farkları görmek için vazgeçip yeniden açın.",
+  editorLabel: (path: string) => `${path} düzenleyicisi`,
+  editorHint: "Markdown · ⌘S kaydet · Esc ile editörden çık",
+  leaveTitle: "Değişiklikler kaydedilmedi",
+  leaveDescription: "Bu sayfadan ayrılırsanız kaydedilmemiş değişiklikler kaybolur.",
+  leave: "Değişiklikleri at",
+  stay: "Düzenlemeye dön",
+
+  // History
+  historyTitle: "Sürüm geçmişi",
+  historySubtitle: "Hafızadaki her değişiklik bir commit'tir: kimin neyi ne zaman değiştirdiğini görün, gerekirse o ana dönün.",
+  historyEmpty: "Henüz geçmiş yok",
+  historyLoadError: "Geçmiş yüklenemedi",
+  selectCommit: "Değişikliği görmek için bir sürüm seçin.",
+  compareToCurrent: "Güncel hâliyle karşılaştır",
+  compareToPrevious: "Önceki sürümle karşılaştır",
+  firstVersion: "İlk sürüm",
+  firstVersionHint: "Bu commit belgeyi oluşturdu.",
+  restoreDoc: "Belgeyi bu sürüme döndür",
+  restoreDocTitle: (sha: string) => `Belge ${sha} sürümüne döndürülsün mü?`,
+  restoreDocDescription: "Belgenin o sürümdeki içeriği yeni bir commit olarak kaydedilir. Geçmiş silinmez.",
+  restoreDocMessage: (path: string, sha: string) => `${path} ${sha} sürümüne döndürüldü`,
+  restoredDoc: "Belge döndürüldü",
+  restoreAll: "Hafızayı bu sürüme geri yükle",
+  restoreAllTitle: (sha: string) => `Tüm hafıza ${sha} sürümüne geri yüklensin mi?`,
+  restoreAllDescription: "Bütün belgeler o anki hâline döner ve bu yeni bir commit olarak kaydedilir. Geçmiş silinmez.",
+  restoredAll: "Hafıza geri yüklendi",
+  restoreFailed: "Geri yüklenemedi",
+  noChanges: "Bu sürümde değişiklik yok.",
+  current: "Güncel",
+  files: (n: number) => (n === 1 ? "1 dosya" : `${n} dosya`),
+  truncated: "Fark çok büyük; ilk kısmı gösteriliyor.",
+  actors: {
+    user: "Siz",
+    agent: "Ajan",
+    external: "Harici düzenleme",
+    system: "AI Studio",
+  } as Record<string, string>,
+
+  // Proposals
+  proposalsTitle: "Hafıza önerileri",
+  proposalsSubtitle: "Ajanlar hafızaya doğrudan yazmaz; önerir. Onayladığınız öneri commit olarak kaydedilir.",
+  tabs: { pending: "Bekleyen", applied: "Uygulanan", rejected: "Reddedilen" } as Record<string, string>,
+  emptyPending: "Bekleyen öneri yok",
+  emptyPendingHint: "Ajanlar memory_propose aracıyla öneri yaptığında burada görünür.",
+  emptyApplied: "Henüz uygulanan öneri yok",
+  emptyRejected: "Reddedilen öneri yok",
+  newDoc: "Yeni belge",
+  sourceSession: "Kaynak oturum",
+  rationale: "Gerekçe",
+  approve: "Onayla",
+  approveEdited: "Düzenleyerek onayla",
+  reject: "Reddet",
+  editBeforeApprove: "Onaylamadan düzenle",
+  resetEdit: "Düzenlemeyi geri al",
+  rejectNote: "Not (isteğe bağlı)",
+  approved: "Öneri onaylandı",
+  approvedHint: (path: string) => `${path} kaydediliyor`,
+  rejected: "Öneri reddedildi",
+  decideFailed: "Karar kaydedilemedi",
+  editedBadge: "Düzenlenerek onaylandı",
+  noteLabel: "Not",
+  commit: "Commit",
+  boundaryWarning: "Sınırları değiştiren öneri; dikkatle inceleyin.",
+  noApproval: "Bu önerinin onay kaydı yok; karar verilemez.",
+  showDiff: "Farkı göster",
+  hideDiff: "Farkı gizle",
+  newFile: "Yeni dosya",
+
+  // Boundaries
+  boundariesTitle: "Sınır haritası",
+  boundariesSubtitle: "boundaries.md ön bilgi bölümünden okunur ve her ajan oturumunda dört katmanda uygulanır.",
+  editBoundaries: "boundaries.md'yi düzenle",
+  forbidden: "Dokunulmaz yollar",
+  forbiddenHint: "Okunmaz ve yazılmaz.",
+  readonly: "Salt okunur yollar",
+  readonlyHint: "Okunur, değiştirilemez.",
+  allowed: "Sormadan çalışan komutlar",
+  allowedHint: "Onay istemeden çalıştırılır.",
+  denied: "Yasak komutlar",
+  deniedHint: "Her zaman reddedilir.",
+  network: "Ağ erişimi",
+  networkHint: "Ajanların internete ve dış servislere erişimi.",
+  networkOn: "Açık",
+  networkOff: "Kapalı",
+  networkOnHint: "Ajanlar ağa erişebilir.",
+  networkOffHint: "Ajanların ağ erişimi kapalı.",
+  sandbox: "Sandbox",
+  remote: "Uzak erişim",
+  none: "Tanımlı değil",
+  sandboxLevels: { read_only: "Salt okuma", workspace_write: "Çalışma alanı", full: "Tam yetki" } as Record<string, string>,
+  sandboxHints: {
+    read_only: "Ajanlar hiçbir dosyayı değiştiremez.",
+    workspace_write: "Yalnız çalışma alanının içine yazabilirler.",
+    full: "Sınırsız dosya erişimi.",
+  } as Record<string, string>,
+  remoteLevels: { none: "Yok", read: "Salt okuma", limited: "Sınırlı", full: "Tam" } as Record<string, string>,
+  remoteHints: {
+    none: "Uzak sunuculara hiç erişilmez.",
+    read: "Yalnız okuma komutları çalışır.",
+    limited: "Sınırlı yazma, onaydan geçer.",
+    full: "Tam yetki; production yine onay ister.",
+  } as Record<string, string>,
+  boundariesWarnings: "boundaries.md'de yok sayılan alanlar var",
+  boundariesLoadError: "Sınırlar yüklenemedi",
+
+  // Context
+  contextTitle: "Ajan bağlamı",
+  contextSubtitle: "Her ajanın sistem istemine eklenen hafıza metni. Claude'a --append-system-prompt, Codex'e developerInstructions ile verilir.",
+  role: "Rol",
+  roles: {
+    writer: "Yazar",
+    reviewer: "İnceleyen",
+    planner: "Planlayıcı",
+    advisor: "Danışman",
+    tester: "Test eden",
+    judge: "Hakem",
+    synthesizer: "Sentezci",
+  } as Record<string, string>,
+  chars: (n: string, cap: string) => `${n} / ${cap} karakter`,
+  rendered: "Biçimli",
+  raw: "Ham metin",
+  contextLoadError: "Bağlam oluşturulamadı",
+  copyContext: "Bağlamı kopyala",
+
+  // New decision
+  newDecisionTitle: "Yeni karar kaydı",
+  newDecisionDescription: "Tarihli bir karar dosyası oluşturulur ve düzenleyicide açılır.",
+  decisionTitle: "Başlık",
+  decisionTitlePlaceholder: "Örn. Bildirimler kuyrukla gönderilsin",
+  create: "Oluştur",
+  titleRequired: "Başlık zorunlu.",
+  decisionCreated: "Karar kaydı oluşturuldu",
+  decisionTemplate: (title: string, date: string) => `---
+title: ${title}
+date: ${date}
+status: önerildi
+summary: Kararın tek cümlelik özeti.
+---
+
+# ${title}
+
+## Bağlam
+
+## Karar
+
+## Sonuçlar
+
+## Değerlendirilen seçenekler
+`,
+
+  // Palette
+  commandGroup: "Hafıza",
+  commandProposals: "Hafıza önerilerini aç",
+  commandBoundaries: "Sınır haritasını aç",
+  commandContext: "Ajan bağlamını önizle",
+  commandHistory: "Hafıza geçmişini aç",
+  commandFacts: "Proje gerçeklerini düzenle",
+  commandNewDecision: "Yeni karar kaydı",
+  commandOpen: (title: string) => `Hafıza: ${title}`,
+} as const;
