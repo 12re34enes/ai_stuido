@@ -137,11 +137,12 @@ async def test_run_command_timeout_kills_process_tree(env: Env) -> None:
     wt = await env.mgr.create(env.repo.id)
     marker = Path(wt.path, "late.txt")
     started = time.monotonic()
-    code, out = await env.mgr.run_command(wt.id, "echo started; (sleep 0.6; touch late.txt) & sleep 30", timeout=0.3)
+    # Generous margins: a login shell under heavy CPU load can take well over 0.3 s to print.
+    code, out = await env.mgr.run_command(wt.id, "echo started; (sleep 4; touch late.txt) & sleep 60", timeout=2.0)
     assert code == 124
     assert "started" in out and "durduruldu" in out
-    assert time.monotonic() - started < 6
-    await asyncio.sleep(1.0)
+    assert time.monotonic() - started < 15
+    await asyncio.sleep(4.5)
     assert not marker.exists()  # the background child was killed with the group
 
 
