@@ -188,9 +188,10 @@ def test_api_lists_subagents_and_counts(app_ctx: tuple[TestClient, AppContext, s
     registry.replace(claude)
     registry.replace(FakeAdapter("codex"))
     ws = client.post("/api/workspaces", json={"name": "Alt ajan API"}).json()
-    body = {"workspace_id": ws["id"], "spec": {"provider": "claude", "cwd": str(git_repo)}}
+    body = {"workspace_id": ws["id"], "spec": {"provider": "claude", "cwd": str(git_repo), "effort": "high"}}
     s = client.post("/api/agents/sessions", json=body).json()
     assert (s["subagent_count"], s["active_subagents"]) == (0, 0)
+    assert s["effort"] == "high"  # surfaced for the session cards
     turn = client.post(f"/api/agents/sessions/{s['id']}/send", json={"text": "subagents"}).json()["turn_id"]
     client.portal.call(claude.last.wait_turn, turn)  # type: ignore[union-attr]
 

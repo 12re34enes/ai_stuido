@@ -120,6 +120,7 @@ class SubagentTracker:
     """Per-session subagent bookkeeping. Methods return the payloads to emit (in order)."""
 
     def __init__(self) -> None:
+        self.context_window: int | None = None  # the session's, learned from turn results
         self._subs: dict[str, _Sub] = {}
         self._by_agent: dict[str, str] = {}  # CLI agentId / task_id -> subagent id
         self._call_owner: dict[str, str] = {}  # tool_use id made inside a subagent -> subagent id
@@ -214,13 +215,13 @@ class SubagentTracker:
 
     # ------------------------------------------------------------------ frames inside a subagent
 
-    def frame(self, subagent_id: str, msg: dict[str, Any], *, assistant: bool) -> list[SubagentStarted]:
+    def frame(self, subagent_id: str, msg: dict[str, Any], *, assistant: bool) -> list[SubagentStarted | Usage]:
         """An assistant/user frame with ``parent_tool_use_id``: register lazily, learn the model
         and track token usage. Returns payloads to emit before the frame's own payloads.
 
-        Token usage is reported only in ``SubagentCompleted.usage``: other modules sum every
-        ``agent.usage`` event per task (limits ``task_usage`` also counts each as a turn), so a
-        running total per subagent API call would be counted again and again."""
+        A new API call's usage is emitted as the subagent's running total with ``partial=True``
+        (live tokens and context in the UI); per-task sums skip partial usage, and the final
+        totals arrive in ``SubagentCompleted.usage``."""
         sub, registered = self._lazy(subagent_id, msg)
         announce = bool(registered)
         if sub.done and assistant:  # resumed (SendMessage to a finished agent)
@@ -236,19 +237,23 @@ class SubagentTracker:
         ):
             sub.model = model  # the resolved id beats the alias given to the tool
             announce = True
-        if assistant:
-            self._track_usage(sub, msg)
-        return [sub.started()] if announce else []
+        out: list[SubagentStarted | Usage] = [sub.started()] if announce else []
+        if assistant and self._track_usage(sub, msg):
+            out.append(self.usage(sub.id).model_copy(update={"partial": True}))
+        return out
 
     @staticmethod
-    def _track_usage(sub: _Sub, msg: dict[str, Any]) -> None:
-        """Latest usage per API message (one frame per content block, the last one wins)."""
+    def _track_usage(sub: _Sub, msg: dict[str, Any]) -> bool:
+        """Latest usage per API message (one frame per content block, the last one wins);
+        True when it changed."""
         message = as_dict(msg.get("message"))
         msg_id = as_str(message.get("id"))
         usage = as_dict(message.get("usage"))
-        if msg_id and usage:
-            sub.usages[msg_id] = usage
-            sub.usages.move_to_end(msg_id)
+        if not msg_id or not usage or sub.usages.get(msg_id) == usage:
+            return False
+        sub.usages[msg_id] = usage
+        sub.usages.move_to_end(msg_id)
+        return True
 
     def note_text(self, subagent_id: str, text: str) -> None:
         sub = self._subs.get(subagent_id)
@@ -269,6 +274,7 @@ class SubagentTracker:
                 as_int(as_dict(u.get("output_tokens_details")).get("thinking_tokens")) or 0 for u in values
             ),
             context_used=context_used if context_used is not None else _context_tokens(last),
+            context_window=self.context_window,
             duration_ms=duration_ms,
             turns=len(values) or None,
             subagent_id=subagent_id,

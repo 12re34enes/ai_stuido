@@ -24,6 +24,11 @@ TERMINAL_STATES: frozenset[AgentState] = frozenset({AgentState.done, AgentState.
 
 def _record(row: Mapping[Any, Any]) -> SessionRecord:
     data = {str(k): v for k, v in row.items() if k != "request"}
+    # Effort lives in the request JSON: the resolved value (profile included), else the spec's.
+    request = row.get("request")
+    spec = request.get("spec") if isinstance(request, dict) else None
+    resolved = request.get("effort") if isinstance(request, dict) else None
+    data["effort"] = resolved or (spec.get("effort") if isinstance(spec, dict) else None)
     data["location"] = Location.model_validate(data.get("location") or {})
     usage = data.get("last_usage")
     data["last_usage"] = Usage.model_validate(usage) if usage else None
@@ -31,7 +36,7 @@ def _record(row: Mapping[Any, Any]) -> SessionRecord:
 
 
 def _values(rec: SessionRecord) -> dict[str, Any]:
-    data = rec.model_dump(mode="python")
+    data = rec.model_dump(mode="python", exclude={"effort"})  # effort lives in the request JSON
     data["location"] = rec.location.model_dump(mode="json")
     data["last_usage"] = rec.last_usage.model_dump(mode="json") if rec.last_usage else None
     data["state"] = rec.state.value

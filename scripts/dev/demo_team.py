@@ -382,9 +382,30 @@ def claude_team_overrides() -> dict[str, Any]:
 # ----------------------------------------------------------------------------- Codex steps
 
 
-def _codex_message(text: str, msg_id: str) -> list[dict[str, Any]]:
+def _codex_usage(context: int, out: int = 600) -> dict[str, Any]:
+    """thread/tokenUsage/updated with ``context`` tokens in the window (drives the context ring)."""
+    last = {
+        "totalTokens": context,
+        "inputTokens": context - out,
+        "cachedInputTokens": max(0, context - out - 2000),
+        "cacheWriteInputTokens": 0,
+        "outputTokens": out,
+        "reasoningOutputTokens": out // 3,
+    }
+    return {
+        "notify": "thread/tokenUsage/updated",
+        "params": {
+            "threadId": "$THREAD",
+            "turnId": "$TURN",
+            "tokenUsage": {"total": last, "last": last, "modelContextWindow": 258_400},
+        },
+    }
+
+
+def codex_message(text: str, msg_id: str, context: int = 30_000) -> list[dict[str, Any]]:
     return [
         {"item": {"type": "agentMessage", "id": msg_id, "text": "", "phase": "final_answer"}, "phase": "started"},
+        _codex_usage(context),
         {"item": {"type": "agentMessage", "id": msg_id, "text": text, "phase": "final_answer"}, "phase": "completed"},
     ]
 
@@ -398,18 +419,19 @@ def codex_team_overrides() -> dict[str, Any]:
     css = ".refund-form :focus-visible { outline: 2px solid var(--accent); }\n"
     qa = _verdict("Form klavyeyle tamamen kullanılabiliyor; ekran okuyucu etiketleri doğru.")
     return {
-        "danışmanısın (Danışman)": {"turnScripts": [[{"sleep": 1500}, *_codex_message(advice, "adv")]] * 16},
+        "danışmanısın (Danışman)": {"turnScripts": [[{"sleep": 1500}, *codex_message(advice, "adv", 52_000)]] * 16},
         "**API geliştirici** olarak": {
             "turnScripts": [
                 [
                     {"sleep": 5000},
                     {"write": {"path": "src/api/refunds.py", "content": api_py}},
-                    *_codex_message(
+                    *codex_message(
                         "POST /refunds/{payment_id}/partial eklendi: tutar doğrulaması, toplam kontrolü ve denetim kaydı.",
                         "api",
+                        88_000,
                     ),
                 ],
-                *[_codex_message("Düzeltildi.", "api-fix")] * 3,
+                *[codex_message("Düzeltildi.", "api-fix")] * 3,
             ]
         },
         "**Stil ajanı** olarak": {
@@ -417,12 +439,12 @@ def codex_team_overrides() -> dict[str, Any]:
                 [
                     {"sleep": 3500},
                     {"write": {"path": "src/refund/refund.css", "content": css}},
-                    *_codex_message("Form stilleri ve odak halkaları eklendi.", "sty"),
+                    *codex_message("Form stilleri ve odak halkaları eklendi.", "sty", 34_000),
                 ],
-                *[_codex_message("Düzeltildi.", "sty-fix")] * 3,
+                *[codex_message("Düzeltildi.", "sty-fix")] * 3,
             ]
         },
-        "test ajanısın (Arayüz test ajanı)": {"turnScripts": [[{"sleep": 2500}, *_codex_message(qa, "qa")]] * 6},
+        "test ajanısın (Arayüz test ajanı)": {"turnScripts": [[{"sleep": 2500}, *codex_message(qa, "qa", 21_000)]] * 6},
     }
 
 

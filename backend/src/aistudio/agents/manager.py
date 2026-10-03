@@ -440,13 +440,16 @@ class AgentManagerImpl:
             label=label,
             role=role,
             model=model,
+            effort=effort,
             state=AgentState.starting,
             origin="created",
             title=prepared.spec.title,
             created_at=now,
             updated_at=now,
         )
-        await self.repo.insert(record, request={"spec": base.model_dump(mode="json"), "tool_names": req.tool_names})
+        await self.repo.insert(
+            record, request={"spec": base.model_dump(mode="json"), "tool_names": req.tool_names, "effort": effort}
+        )
         await self._emit_created(record)
         live, sink, gate = self._make_live(record, prepared)
         handle = await self._launch(adapter, transport, live, sink, gate, prepared.tools)

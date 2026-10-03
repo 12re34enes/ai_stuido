@@ -147,8 +147,11 @@ async def test_live_subagents_parallel_nested_permission_error_and_background(tm
         ("toolu_nested", "test, lint, build"),
         ("toolu_bg", "İnceleme tamam: sorun yok."),
     } <= messages
-    # subagent tokens travel in SubagentCompleted.usage only (agent.usage is summed per task elsewhere)
-    assert [u for u in sink.of(Usage) if u.subagent_id is not None] == []
+    live = [u for u in sink.of(Usage) if u.subagent_id is not None]
+    # running totals per subagent API call are live-only (partial); per-task sums skip them
+    assert live and all(u.partial for u in live)
+    explore_live = [u for u in live if u.subagent_id == "toolu_explore"]
+    assert explore_live and explore_live[-1].input_tokens <= (ex.usage.input_tokens if ex.usage else 0)
     main_usage = [u for u in sink.of(Usage) if u.subagent_id is None]
     assert main_usage and main_usage[-1].input_tokens == 10  # the turn's own usage is untouched
 

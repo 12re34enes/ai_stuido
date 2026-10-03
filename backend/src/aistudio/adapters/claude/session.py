@@ -593,6 +593,8 @@ class ClaudeSession:
         if cost is not None:
             self._last_cost = cost
         usage = build_usage(msg, model=self._norm.model, context_used=self._norm.context_used, cost_delta=delta)
+        if usage.context_window:
+            self._norm.subagents.context_window = usage.context_window
         text = as_str(msg.get("result"))
         result = TurnResult(
             turn_id=turn.turn_id, status=status, text=text if status == "success" else None, usage=usage, error=error

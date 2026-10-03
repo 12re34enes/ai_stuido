@@ -138,7 +138,8 @@ def _collect(events: list[Event]) -> _Collected:
             if p.get("status") == "error" and p.get("error"):
                 c.errors.append(one_line(str(p["error"]), 300))
         elif ev.type == ET.AGENT_USAGE:
-            c.last_usage_event = p
+            if not p.get("subagent_id"):  # a subagent's running total is not the session's usage
+                c.last_usage_event = p
         elif ev.type == ET.AGENT_FILE_CHANGED:
             path = str(p.get("path") or "").strip()
             if path:

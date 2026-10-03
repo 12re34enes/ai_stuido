@@ -51,7 +51,10 @@ def build_router(get_manager: Callable[[], AgentManagerImpl]) -> APIRouter:
             c = counts.get(rec.id) or SubagentCounts()
             out.append(
                 SessionView(
-                    **rec.model_dump(), live=m.is_live(rec.id), subagent_count=c.total, active_subagents=c.active
+                    **rec.model_dump(),
+                    live=m.is_live(rec.id),
+                    subagent_count=c.total,
+                    active_subagents=c.active,
                 )
             )
         return out

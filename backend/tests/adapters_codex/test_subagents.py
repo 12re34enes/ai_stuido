@@ -119,7 +119,9 @@ async def test_live_subagents_nested_parallel_v2_and_approvals(make_harness: Mak
     results = {r.call_id: r for r in sink.of(ToolResultEv)}
     assert results["s1_cmd"].subagent_id == S1 and "a.test.ts" in results["s1_cmd"].output
     assert "hata verdi" in results["call_wait"].output
-    assert [u for u in sink.of(Usage) if u.subagent_id is not None] == []  # only in SubagentCompleted
+    live = [u for u in sink.of(Usage) if u.subagent_id is not None]
+    assert live and all(u.partial for u in live)  # live running totals; per-task sums skip them
+    assert live[-1].context_window is not None or live[-1].input_tokens > 0
     s3_usage = by_id[S3].usage
     assert s3_usage is not None and s3_usage.input_tokens == 300 and s3_usage.subagent_id == S3
     main_messages = [m for m in sink.of(Message) if m.subagent_id is None]

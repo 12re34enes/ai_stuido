@@ -445,6 +445,7 @@ class SessionRecord(BaseModel):
     label: str | None = None
     role: AgentRole = "writer"
     model: str | None = None
+    effort: str | None = None  # reasoning effort the session was started with (from its spec)
     state: AgentState = AgentState.starting
     origin: Literal["created", "imported", "external"] = "created"
     title: str | None = None

@@ -549,9 +549,10 @@ class CodexSession:
         await self._n_item_fileChange_patchUpdated(n)
 
     async def _s_thread_tokenUsage_updated(self, n: p.ThreadTokenUsageUpdatedNotification, sid: str) -> None:
-        # kept for SubagentCompleted.usage; not emitted as agent.usage (other modules sum those
-        # per task and count each as a turn)
-        self._subs.token_usage(sid, n.token_usage)
+        # live running total of the sub-agent (partial: per-task sums skip it); the final totals
+        # arrive in SubagentCompleted.usage
+        value = self._subs.token_usage(sid, n.token_usage)
+        await self._emit(value.model_copy(update={"partial": True}))
 
     async def _s_thread_closed(self, n: p.ThreadClosedNotification, sid: str) -> None:
         await self._announce(self._subs.closed(sid))

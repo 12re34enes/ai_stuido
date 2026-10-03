@@ -52,6 +52,14 @@ import uuid
 from typing import Any
 
 SCENARIO: dict[str, Any] = {}
+
+
+def write_file(path: str, content: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+
 LOG_PATH = os.environ.get("FAKE_CODEX_LOG")
 
 
@@ -262,10 +270,7 @@ class FakeServer:
                 await asyncio.sleep(step["sleep"] / 1000)
             elif "write" in step:  # really write a file under the thread's cwd
                 root = self.thread["cwd"] if self.thread else self.cwd
-                path = os.path.join(root, step["write"]["path"])
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(step["write"].get("content", ""))
+                write_file(os.path.join(root, step["write"]["path"]), step["write"].get("content", ""))
             elif "raw" in step:
                 sys.stdout.write(step["raw"] + "\n")
                 sys.stdout.flush()

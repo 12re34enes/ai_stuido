@@ -97,10 +97,7 @@ def codex_scenario() -> dict[str, Any]:
         '[{"severity": "low", "file": "src/ui/LimitBar.tsx", "line": 42, '
         '"message": "Renk eşikleri sabit yerine token olabilir."}]}\n```'
     )
-    turn = [
-        {"item": {"type": "agentMessage", "id": "msg_r", "text": "", "phase": "final_answer"}, "phase": "started"},
-        {"item": {"type": "agentMessage", "id": "msg_r", "text": text, "phase": "final_answer"}, "phase": "completed"},
-    ]
+    turn = demo_team.codex_message(text, "msg_r", context=46_000)
     window = {"limitId": "codex", "limitName": None, "credits": None, "planType": "plus", "rateLimitReachedType": None}
     limits = {
         **window,
