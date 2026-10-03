@@ -11,7 +11,7 @@ from aistudio.contracts.common import Provider
 from aistudio.contracts.deploy import DeployService
 from aistudio.contracts.git_hosting import GitHostingService
 from aistudio.contracts.gitops import WorktreeManager
-from aistudio.contracts.limits import LimitService
+from aistudio.contracts.limits import Budget, LimitPolicy, LimitService
 from aistudio.contracts.memory import MemoryService
 from aistudio.contracts.studios import StudioService
 from aistudio.contracts.tools import ToolRegistry
@@ -58,6 +58,21 @@ class EngineRuntime:
             return float(value)
         except (TypeError, ValueError):
             return float(SETTINGS_DEFAULTS[key])
+
+    async def default_budget(self) -> Budget:
+        """Settings → Limitler: the budget for tasks whose task and flow set none."""
+        try:
+            return Budget.model_validate(await self.ctx.store.get("limits.default_budget") or {})
+        except ValueError:
+            return Budget()
+
+    async def default_limit_policy(self) -> LimitPolicy:
+        """Settings → Limitler: the exhaustion policy of mode templates (flows carry their own)."""
+        try:
+            value = await self.ctx.store.get("limits.on_exhausted")
+            return LimitPolicy(on_exhausted=value) if value else LimitPolicy()
+        except ValueError:
+            return LimitPolicy()
 
     async def provider_slot(self, provider: Provider) -> asyncio.Semaphore:
         sem = self._provider_slots.get(provider)

@@ -69,6 +69,8 @@ async def ensure_provider(
         return provider, info
     task = nctx.ex.task
     budget = task.budget or nctx.ex.graph.settings.budget
+    if not _budget_has_limits(budget):
+        budget = await nctx.rt.default_budget()
     policy = nctx.ex.graph.settings.limit_policy.on_exhausted
     while True:
         check = await check_provider(limits, provider, budget, task.id)

@@ -496,7 +496,6 @@ async def _count_stalled(env: AgentsEnv, session_id: str, n: int) -> bool:
     return len(await stalled(env, session_id)) >= n
 
 
-
 async def test_implicit_state_changes_are_published(agents_env: AgentsEnv) -> None:
     """A turn that completes without the adapter emitting StatusChanged still yields agent.status
     events, so status dots never go stale."""

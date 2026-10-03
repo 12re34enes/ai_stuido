@@ -168,10 +168,13 @@ class FlowEngineImpl:
     async def graph_for_mode(self, mode: FlowMode, *, workspace_id: str) -> FlowGraph:
         settings = await self._workspace_engine_settings(workspace_id)
         primary = await self._default_provider(workspace_id)
-        flow_settings = FlowSettings()
+        # Global Settings → Limitler defaults, then the workspace's own flow settings on top.
+        flow_settings = FlowSettings(limit_policy=await self.rt.default_limit_policy())
         if isinstance(settings.get("flow_settings"), dict):
             try:
-                flow_settings = FlowSettings.model_validate(settings["flow_settings"])
+                flow_settings = FlowSettings.model_validate(
+                    {**flow_settings.model_dump(mode="json"), **settings["flow_settings"]}
+                )
             except ValueError:
                 log.warning("invalid flow_settings for workspace %s", workspace_id)
         return build_mode_graph(mode, primary=primary, settings=flow_settings)
