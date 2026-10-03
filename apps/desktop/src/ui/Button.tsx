@@ -58,6 +58,9 @@ export function Button({
 }: ButtonProps) {
   const inactive = disabled || loading;
   const hasIcon = icon !== undefined && icon !== null;
+  // `cn` doesn't merge conflicting utilities, so keep the default `relative` only when the caller
+  // didn't position the button itself (an `absolute` / `fixed` / `sticky` class would lose).
+  const positioned = typeof className === "string" && /(^|\s)(absolute|fixed|sticky)(\s|$)/.test(className);
   return (
     <motion.button
       type={type}
@@ -66,7 +69,8 @@ export function Button({
       whileTap={inactive ? undefined : { scale: 0.97 }}
       transition={spring.snappy}
       className={cn(
-        "relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap font-medium outline-none",
+        !positioned && "relative",
+        "inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap font-medium outline-none",
         "transition-[background-color,border-color,color,box-shadow,opacity] duration-150 ease-out",
         "focus-visible:shadow-[var(--focus-ring)] disabled:pointer-events-none",
         disabled && !loading && "opacity-45",

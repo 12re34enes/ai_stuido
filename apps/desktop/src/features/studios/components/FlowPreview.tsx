@@ -71,18 +71,18 @@ const edgeTypes = { baton: BatonEdge };
 function cardKind(n: FlowNode): FlowNodeKind | null {
   switch (n.config.kind) {
     case "agent":
-    case "synthesis":
-      return "agent";
     case "advisor":
-      return "advisor";
     case "gate":
-      return "gate";
     case "human":
-      return "human";
     case "merge":
-      return "merge";
+    case "compare":
+    case "synthesis":
+    case "git":
+    case "deploy":
+    case "team":
+      return n.config.kind;
     default:
-      return null;
+      return null; // parallel / join / condition draw as small control nodes
   }
 }
 

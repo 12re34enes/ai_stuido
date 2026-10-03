@@ -192,3 +192,16 @@ describe("RelativeTime", () => {
     expect(container.querySelector("time")).toBeNull();
   });
 });
+
+describe("Button positioning", () => {
+  it("keeps a caller's absolute position", () => {
+    renderUI(
+      <>
+        <Button className="absolute top-2 right-2">Konumlu</Button>
+        <Button>Normal</Button>
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "Konumlu" }).className).not.toMatch(/(^|\s)relative(\s|$)/);
+    expect(screen.getByRole("button", { name: "Normal" }).className).toMatch(/(^|\s)relative(\s|$)/);
+  });
+});

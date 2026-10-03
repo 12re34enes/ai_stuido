@@ -1,5 +1,5 @@
 import { Handle, Position } from "@xyflow/react";
-import { Bot, GitMerge, Lightbulb, ShieldCheck, User } from "lucide-react";
+import { Bot, GitMerge, GitPullRequest, Lightbulb, Rocket, Scale, ShieldCheck, Sparkles, Split, User, Users, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, type ReactNode } from "react";
 
@@ -11,7 +11,7 @@ import { ProviderMark } from "../ProviderMark";
 import { ActiveGlow } from "./ActiveGlow";
 import { GateMark, type GateStatus } from "./GateMark";
 
-export type FlowNodeKind = "agent" | "advisor" | "gate" | "human" | "merge";
+export type FlowNodeKind = "agent" | "advisor" | "gate" | "human" | "merge" | "compare" | "condition" | "synthesis" | "git" | "deploy" | "team";
 export type FlowNodeStatus = "pending" | "active" | "done" | "failed" | "skipped";
 
 export interface FlowNodeCardProps {
@@ -26,10 +26,24 @@ export interface FlowNodeCardProps {
   /** Horizontal (left→right) or vertical (top→bottom) flow. */
   direction?: "horizontal" | "vertical";
   footer?: ReactNode;
+  /** Card width in px (default 220). */
+  width?: number;
   className?: string;
 }
 
-const kindIcon = { agent: Bot, advisor: Lightbulb, gate: ShieldCheck, human: User, merge: GitMerge };
+const kindIcon: Record<FlowNodeKind, LucideIcon> = {
+  agent: Bot,
+  advisor: Lightbulb,
+  gate: ShieldCheck,
+  human: User,
+  merge: GitMerge,
+  compare: Scale,
+  condition: Split,
+  synthesis: Sparkles,
+  git: GitPullRequest,
+  deploy: Rocket,
+  team: Users,
+};
 
 function gateStatus(s: FlowNodeStatus): GateStatus {
   return s === "done" ? "passed" : s === "failed" ? "failed" : s === "active" ? "running" : s === "skipped" ? "skipped" : "pending";
@@ -49,6 +63,7 @@ export function FlowNodeCard({
   handles = false,
   direction = "horizontal",
   footer,
+  width = 220,
   className,
 }: FlowNodeCardProps) {
   const [scope, shake] = useShake<HTMLDivElement>();
@@ -59,24 +74,31 @@ export function FlowNodeCard({
   const Icon = kindIcon[kind];
   const isGate = kind === "gate";
   const providerLook =
-    provider === "claude" && !isGate
-      ? "rounded-xl border-claude-line bg-claude-surface"
-      : provider === "codex" && !isGate
-        ? "rounded-[6px] border-codex-line bg-codex-surface"
-        : "rounded-lg border-line bg-surface";
+    provider === "claude" && !isGate ? "rounded-xl bg-claude-surface" : provider === "codex" && !isGate ? "rounded-[6px] bg-codex-surface" : "rounded-lg bg-surface";
+  // Exactly one border colour: Tailwind decides between competing classes by stylesheet order,
+  // not by their order here, so "selected" would otherwise lose to the provider's line colour.
+  const border =
+    status === "failed"
+      ? "border-danger/60"
+      : selected
+        ? "border-accent"
+        : provider === "claude" && !isGate
+          ? "border-claude-line"
+          : provider === "codex" && !isGate
+            ? "border-codex-line"
+            : "border-line";
   const radius = provider === "claude" && !isGate ? "rounded-xl" : provider === "codex" && !isGate ? "rounded-[6px]" : "rounded-lg";
   const glowTone = provider && !isGate ? provider : "accent";
 
   return (
-    <div ref={scope} className={cn("relative w-[220px]", className)}>
+    <div ref={scope} className={cn("relative", className)} style={{ width }}>
       <ActiveGlow active={status === "active"} tone={glowTone} radius={radius} />
       <div
         className={cn(
           "relative flex flex-col gap-1.5 overflow-hidden border px-3 py-2.5 shadow-1 transition-[border-color,opacity] duration-300",
           providerLook,
-          selected && "border-accent",
+          border,
           status === "skipped" && "opacity-55",
-          status === "failed" && "border-danger/60",
         )}
       >
         {isGate && status === "done" && (
