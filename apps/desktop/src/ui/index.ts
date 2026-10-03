@@ -70,3 +70,4 @@ export { isMacPlatform, isTypingTarget, matchesShortcut, parseShortcut, shortcut
 export { parseAnsi, stripAnsi } from "./log/ansi";
 export { parseMarkdown } from "./markdown/parse";
 export { usePortalContainer } from "./portal";
+export { ContextRing, type ContextRingProps } from "./ContextRing";

@@ -14,6 +14,7 @@ import {
   Settings,
   Sparkles,
   TerminalSquare,
+  Users,
   Workflow,
 } from "lucide-react";
 import type { ComponentType } from "react";
@@ -37,6 +38,7 @@ export const features: FeatureRoute[] = [
   { id: "home", path: "/", label: "Ana sayfa", icon: Home, section: "main", shortcut: "⌘1", keywords: ["home", "başlangıç", "yeni görev"], load: () => import("@/features/home") },
   { id: "tasks", path: "/tasks/*", label: "Görevler", icon: ListChecks, section: "main", shortcut: "⌘2", keywords: ["tasks", "işler", "koşular"], load: () => import("@/features/tasks") },
   { id: "flows", path: "/flows/*", label: "Akışlar", icon: Workflow, section: "main", shortcut: "⌘3", keywords: ["flows", "tuval", "canvas"], load: () => import("@/features/flows") },
+  { id: "teams", path: "/teams/*", label: "Ekipler", icon: Users, section: "main", load: () => import("@/features/teams") },
   { id: "studios", path: "/studios/*", label: "Stüdyolar", icon: Sparkles, section: "main", shortcut: "⌘4", keywords: ["studios", "şablon"], load: () => import("@/features/studios") },
   { id: "memory", path: "/memory/*", label: "Hafıza", icon: BookOpen, section: "main", shortcut: "⌘5", keywords: ["memory", "kararlar", "sınırlar"], load: () => import("@/features/memory") },
   { id: "sessions", path: "/sessions/*", label: "Oturumlar", icon: TerminalSquare, section: "main", shortcut: "⌘6", keywords: ["sessions", "ajanlar", "agents"], load: () => import("@/features/sessions") },
