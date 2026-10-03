@@ -245,6 +245,7 @@ class ScheduleTemplate(BaseModel):
     mode: FlowMode = FlowMode.duo
     flow_id: str | None = None
     studio_id: str | None = None
+    team_id: str | None = None  # mode=team: saved or built-in team template (default team otherwise)
     repo_ids: list[str] | None = None
     base_ref: str | None = None
     inputs: dict[str, Any] = Field(default_factory=dict)

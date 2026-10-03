@@ -21,7 +21,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from aistudio.contracts.agents import Boundaries
 from aistudio.contracts.common import Provider
@@ -68,6 +68,14 @@ class TeamMember(BaseModel):
     test_command: str | None = None  # optional command the tester must run (e.g. "pnpm e2e")
     boundaries: Boundaries | None = None
     position: TeamPosition | None = None  # builder layout
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_only_roles_default(cls, data: object) -> object:
+        """Advisors and testers are read-only unless ``writes`` is given explicitly."""
+        if isinstance(data, dict) and "writes" not in data and data.get("role") in ("advisor", "tester"):
+            return {**data, "writes": False}
+        return data
 
 
 class TeamSettings(BaseModel):

@@ -121,6 +121,10 @@ def _collect(events: list[Event]) -> _Collected:
                 c.requests.append(text)
             c.started = c.started or ev.ts
         elif ev.type == ET.AGENT_MESSAGE:
+            # A subagent's text (a background one can even land after the turn) is not the
+            # session's answer; its file changes and commands still count below.
+            if p.get("subagent_id"):
+                continue
             if p.get("role", "assistant") == "assistant" and str(p.get("text") or "").strip():
                 c.final_text = str(p["text"]).strip()
         elif ev.type == ET.AGENT_TURN_COMPLETED:

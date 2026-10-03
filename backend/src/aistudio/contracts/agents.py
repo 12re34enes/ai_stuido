@@ -206,6 +206,9 @@ class Usage(BaseModel):
     api_equivalent_usd: float | None = None  # informational only (subscriptions)
     turns: int | None = None
     subagent_id: str | None = None  # set when produced inside a CLI-native subagent
+    # A live running total inside a turn (Codex reports one per model call). The turn's final
+    # usage follows as a non-partial event; per-task totals count only non-partial ones.
+    partial: bool = False
 
 
 class SubagentStarted(BaseModel):

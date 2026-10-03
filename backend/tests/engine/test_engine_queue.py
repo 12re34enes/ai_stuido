@@ -150,6 +150,25 @@ async def test_cron_schedule_fires_task(env: EngineEnv) -> None:
     assert await env.engine.scheduler.fire_due(sched.next_run_at + timedelta(seconds=2)) == []
 
 
+async def test_scheduled_team_task_uses_the_chosen_team(env: EngineEnv) -> None:
+    sched = await env.engine.create_schedule(
+        ScheduleCreate(
+            workspace_id=env.workspace.id,
+            name="Gece ekibi",
+            cron="0 3 * * *",
+            template=ScheduleTemplate(
+                title="Ekip işi", prompt="Bağımlılıkları güncelle", mode=FlowMode.team, team_id="derin-ekip"
+            ),
+            enabled=False,
+        )
+    )
+    task = await env.engine.fire_schedule(sched.id)
+    assert task.mode == FlowMode.team
+    graph = await env.engine.resolve_graph(task)
+    (team_node,) = [n for n in graph.nodes if n.config.kind == "team"]
+    assert team_node.config.team_id == "derin-ekip"  # type: ignore[union-attr]
+
+
 async def test_disabled_schedule_and_manual_fire(env: EngineEnv) -> None:
     sched = await env.engine.create_schedule(
         ScheduleCreate(

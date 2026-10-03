@@ -147,6 +147,14 @@ async def test_attribution_splits_across_active_tasks(ctx: AppContext, svc: Limi
             session_id="s1",
             task_id="t1",
         )
+    # Codex-style live running totals inside a turn are not counted (the final one above is).
+    for live in (30, 60):
+        await ctx.events.append(
+            "agent.usage",
+            Usage(input_tokens=live, output_tokens=live, partial=True).model_dump(mode="json"),
+            session_id="s1",
+            task_id="t1",
+        )
     u1 = await svc.task_usage("t1")
     assert u1.five_hour_percent_spent == pytest.approx(12)
     assert u1.weekly_percent_spent == pytest.approx(2)

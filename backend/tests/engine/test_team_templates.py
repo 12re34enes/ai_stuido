@@ -109,7 +109,7 @@ def test_tree_rules() -> None:
 
 
 def test_advisor_rules() -> None:
-    writes = spec(member("adv", "Danışman", "advisor", "lead"), LEAD)
+    writes = spec(member("adv", "Danışman", "advisor", "lead", writes=True), LEAD)
     assert codes(writes) == ["advisor_writes"] and "kod yazamaz" in messages(writes)
     leaf = spec(LEAD, member("dev", "Dev", "worker", "lead"), member("adv", "D", "advisor", "dev", writes=False))
     assert codes(leaf) == ["advisor_target"]
@@ -272,3 +272,12 @@ async def test_team_catalog_versions(env: EngineEnv) -> None:
         await catalog.get(created.id)
     types = [e.type for e in await env.events(types=["team.template.*"])]
     assert types == ["team.template.saved", "team.template.saved", "team.template.deleted"]
+
+
+def test_advisors_and_testers_default_to_read_only() -> None:
+    from aistudio.contracts.teams import TeamMember
+
+    assert TeamMember(id="a", name="Danışman", role="advisor").writes is False  # type: ignore[arg-type]
+    assert TeamMember.model_validate({"id": "q", "name": "Test", "role": "tester"}).writes is False
+    assert TeamMember.model_validate({"id": "q", "name": "Test", "role": "tester", "writes": True}).writes is True
+    assert TeamMember.model_validate({"id": "w", "name": "Geliştirici", "role": "worker"}).writes is True

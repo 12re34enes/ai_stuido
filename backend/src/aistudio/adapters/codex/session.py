@@ -320,6 +320,8 @@ class CodexSession:
         usage = self._turn_usage.pop(tid, None)
         if turn.duration_ms is not None:
             usage = (usage or Usage()).model_copy(update={"duration_ms": turn.duration_ms})
+        if usage is not None:
+            await self._emit(usage)  # the turn's one countable usage (the live ones were partial)
         text = self._turn_final.pop(tid, None) or self._turn_text.pop(tid, None)
         self._turn_text.pop(tid, None)
         self._turn_base.pop(tid, None)
@@ -594,7 +596,7 @@ class CodexSession:
             self._turn_base[n.turn_id] = base
         usage = m.usage_since(n.token_usage, base)
         self._turn_usage[n.turn_id] = usage
-        await self._emit(usage)
+        await self._emit(usage.model_copy(update={"partial": True}))
 
     async def _n_account_rateLimits_updated(self, n: p.AccountRateLimitsUpdatedNotification) -> None:
         windows = m.limit_windows(n.rate_limits, source="event")

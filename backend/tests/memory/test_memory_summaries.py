@@ -79,6 +79,24 @@ async def test_build_summary_from_events(mem: MemEnv) -> None:
     assert "## Hatalar\n\n- Geçici ağ hatası" in md
 
 
+async def test_background_subagent_text_does_not_become_the_result(mem: MemEnv) -> None:
+    sid = "ses_SUB"
+    await _emit(mem, sid, SessionStarted(native_id="n2", model="claude-opus", cwd="/tmp/repo"))
+    await _emit(mem, sid, TurnStarted(turn_id="t1", input="Testleri incele"))
+    await _emit(mem, sid, Message(message_id="m1", text="İnceleme bitti; iki test düzeltildi."))
+    await _emit(mem, sid, TurnCompleted(turn_id="t1", status="success", result_text=None))
+    # A background subagent reports after the turn ended.
+    await _emit(mem, sid, Message(message_id="m2", text="Alt ajan: dosyaları taradım.", subagent_id="toolu_1"))
+    await _emit(mem, sid, FileChanged(path="tests/test_a.py", change="modify", subagent_id="toolu_1"))
+    events = await mem.ctx.events.query(EventFilter(session_id=sid))
+    built = build_session_summary(sid, events)
+    assert built is not None
+    _path, md = built
+    assert "## Sonuç\n\nİnceleme bitti; iki test düzeltildi." in md
+    assert "dosyaları taradım" not in md
+    assert "- `tests/test_a.py` (değiştirildi)" in md
+
+
 def test_empty_session_produces_no_summary() -> None:
     assert build_session_summary("ses_x", []) is None
 

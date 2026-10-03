@@ -15,7 +15,8 @@ Events
 
 Per-task attribution (approximation)
     Token counts, agent time and turns come exactly from ``agent.usage`` events carrying the
-    task id (adapters emit one ``Usage`` per turn with that turn's increments). Limit
+    task id (adapters emit one non-partial ``Usage`` per turn with that turn's increments;
+    live ``partial`` running totals are skipped). Limit
     *percentages* are only reported per account, so every positive change of a window is split
     equally across the provider's tasks that were active (a turn running, or any turn/usage
     event) since the previous observation of that window. Concurrent tasks of very different
@@ -418,6 +419,8 @@ class LimitServiceImpl:
                     u = Usage.model_validate(ev.payload)
                 except ValidationError:
                     continue
+                if u.partial:
+                    continue  # running total inside a turn; the turn's final usage follows
                 totals.input_tokens += u.input_tokens
                 totals.output_tokens += u.output_tokens
                 totals.duration_ms += u.duration_ms or 0

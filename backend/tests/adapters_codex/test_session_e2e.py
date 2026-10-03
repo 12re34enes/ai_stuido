@@ -156,8 +156,10 @@ async def test_full_turn_with_approvals_tools_usage_and_limits(make_harness: Mak
 
     # usage: per-turn delta from the first update's base (total - last)
     usages = sink.of(Usage)
-    assert len(usages) == 2
-    last = usages[-1]
+    # two live (partial) updates, then the turn's one countable usage with its duration
+    assert [u.partial for u in usages] == [True, True, False]
+    assert usages[-1].duration_ms == 1234
+    last = usages[-2]
     # base = total1 - last1 = (1200-700 input, 200-200 cached, ...) -> input 500, cached 0
     assert last.cache_read_tokens == 500
     assert last.input_tokens == (2000 - 500) - (500 - 0)

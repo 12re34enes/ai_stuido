@@ -115,6 +115,7 @@ class Scheduler:
                     mode=tpl.mode,
                     flow_id=tpl.flow_id,
                     studio_id=tpl.studio_id,
+                    team_id=tpl.team_id,
                     repo_ids=tpl.repo_ids,
                     base_ref=tpl.base_ref,
                     inputs=dict(tpl.inputs),
