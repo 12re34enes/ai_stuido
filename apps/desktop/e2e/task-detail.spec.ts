@@ -663,7 +663,9 @@ test("cancel asks for confirmation, export downloads, rating posts", async ({ pa
   expect((await download).suggestedFilename()).toBe("limit-cubuklarini-ust-cubuga-ekle.md");
 
   await page.goto("/#/tasks/task_141");
-  await page.getByRole("radio", { name: "5 yıldız" }).click();
+  // The previous task's page animates out; act on the one that is arriving.
+  const header = page.locator("header").filter({ hasText: "task_141" });
+  await header.getByRole("radio", { name: "5 yıldız" }).click();
   await expect(page.getByText("Görev 5 yıldızla puanlandı")).toBeVisible();
   expect(sc.posts.find((p) => p.path === "/engine/tasks/task_141/rating")?.body).toEqual({ rating: 5 });
 });

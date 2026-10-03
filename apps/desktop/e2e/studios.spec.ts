@@ -518,7 +518,7 @@ test("new studio from a template opens the editor and creates it", async ({ page
   await page.getByRole("dialog", { name: "Stüdyoyu oluştur" }).getByRole("button", { name: "Stüdyoyu oluştur" }).click();
   await expect(page).toHaveURL(/#\/studios\/sizma-testi-plani$/);
   expect(state.saves[0]).toMatchObject({ method: "POST", studio: { id: "sizma-testi-plani", name: "Sızma testi planı" } });
-  await expect(page.getByRole("heading", { name: "Sızma testi planı", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sızma testi planı", level: 1, exact: true })).toBeVisible();
 });
 
 test("live studio.saved refreshes the gallery; palette opens a studio", async ({ page }) => {

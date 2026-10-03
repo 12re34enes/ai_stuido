@@ -8,8 +8,9 @@
  *       last_text}]
  *   agent.subagent.started (an UPSERT: repeats when the name/model is learned later or a finished
  *     subagent resumes; non-null fields win, status back to running) / agent.subagent.completed
- *     (once per run; tokens only arrive here, in `usage`), plus payloads carrying `subagent_id`
- *     (message, thinking, tool call/result, file change, permission request).
+ *     (once per run; final totals in `usage`), plus payloads carrying `subagent_id`
+ *     (message, thinking, tool call/result, file change, permission request, and `agent.usage`
+ *     with `partial: true` = the subagent's running token total and context).
  *   session records carry `subagent_count` / `active_subagents` (counts).
  */
 import type { StudioEvent } from "@/lib/events";
@@ -161,9 +162,10 @@ export interface LivePatch {
 
 export type LiveMap = Readonly<Record<string, LivePatch>>;
 
-/** Event types the subagent live store listens to (persisted events only). The backend sends no
- *  `agent.usage` for subagents (their tokens come with `completed`), so usage stays off the wire. */
-export const SUBAGENT_EVENT_TYPES = ["agent.subagent.*", "agent.message", "agent.tool.call", "agent.session.ended"];
+/** Event types the subagent live store listens to (persisted events only). `agent.usage` tagged
+ *  with `subagent_id` is a subagent's running total (`partial`), so tokens and context move live;
+ *  `completed.usage` carries the final totals. */
+export const SUBAGENT_EVENT_TYPES = ["agent.subagent.*", "agent.message", "agent.tool.call", "agent.usage", "agent.session.ended"];
 
 /** Short Turkish line for a tool call made inside a subagent. */
 export type ToolLine = (p: Record<string, unknown>) => string | null;

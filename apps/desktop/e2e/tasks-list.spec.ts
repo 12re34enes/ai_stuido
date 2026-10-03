@@ -111,6 +111,12 @@ async function installEngine(page: Page, mutate?: (e: EngineState) => void): Pro
         .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
       return json(route, list.slice(offset, offset + limit));
     }
+    const detail = /^\/engine\/tasks\/([^/]+)$/.exec(path);
+    if (detail && req.method() === "GET") {
+      const t = e.tasks.find((x) => x.id === detail[1]);
+      if (!t) return json(route, { error: { code: "not_found", message: "Görev bulunamadı" } }, 404);
+      return json(route, { task: t, runs: [], current_run: null, error: null, hold_until: null, hold_reason: null, start_on_reset: false });
+    }
     const cancel = /^\/engine\/tasks\/([^/]+)\/cancel$/.exec(path);
     if (cancel && req.method() === "POST") {
       const t = e.tasks.find((x) => x.id === cancel[1]);
@@ -247,7 +253,7 @@ test("keyboard: arrows move, Enter opens the task with the shared transition", a
   await expect(page.getByRole("link", { name: "Aç: Plan onayı bekleyen görev" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#\/tasks\/task_wait$/);
-  await expect(page.getByText("Görev task_wait")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Plan onayı bekleyen görev" })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole("heading", { name: "Görevler", level: 1 })).toBeVisible();
 });

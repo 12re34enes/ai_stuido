@@ -404,7 +404,8 @@ export function applyReplayEvent(state: ReplayState, ev: StudioEvent, index: num
       if (!sid) return base;
       return { ...base, agents: withAgent(state, sid, { lastLine: str(p.summary) || str(p.tool) || null }) };
     case "agent.usage":
-      if (!sid) return base;
+      // A CLI-native subagent's running total is its own, not the agent's context ring.
+      if (!sid || str(p.subagent_id)) return base;
       return { ...base, agents: withAgent(state, sid, { usage: p as unknown as Usage }) };
     case "agent.session.ended":
       if (!sid) return base;

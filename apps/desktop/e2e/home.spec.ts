@@ -237,6 +237,12 @@ async function installEngine(page: Page, mutate?: (e: EngineState) => void): Pro
       e.tasks.unshift(created);
       return json(route, { task: created, runs: [], current_run: null, error: null, hold_until: null, hold_reason: null, start_on_reset: false }, 201);
     }
+    const detail = /^\/engine\/tasks\/([^/]+)$/.exec(path);
+    if (detail && method === "GET") {
+      const t = e.tasks.find((x) => x.id === detail[1]);
+      if (!t) return json(route, { error: { code: "not_found", message: "Görev bulunamadı" } }, 404);
+      return json(route, { task: t, runs: [], current_run: null, error: null, hold_until: null, hold_reason: null, start_on_reset: false });
+    }
     const runMatch = /^\/engine\/runs\/([^/]+)$/.exec(path);
     if (runMatch) {
       const run = e.runs[runMatch[1]!];
@@ -414,7 +420,7 @@ test("opening an active task expands its card into the task page", async ({ page
   await page.waitForTimeout(140);
   await page.screenshot({ path: shot("home-morph-2") });
   await expect(page).toHaveURL(/#\/tasks\/task_201$/);
-  await expect(page.getByText("Görev task_201")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Limit çubuklarını üst çubuğa ekle" })).toBeVisible();
   await settle(page, 700);
   await page.screenshot({ path: shot("home-morph-3") });
 });
