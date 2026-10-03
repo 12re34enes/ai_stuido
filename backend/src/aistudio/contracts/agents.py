@@ -146,22 +146,26 @@ class TurnStarted(BaseModel):
 class MessageDelta(BaseModel):
     message_id: str
     text: str
+    subagent_id: str | None = None  # set when produced inside a CLI-native subagent
 
 
 class Message(BaseModel):
     message_id: str
     role: Literal["assistant", "user"] = "assistant"
     text: str
+    subagent_id: str | None = None  # set when produced inside a CLI-native subagent
 
 
 class ThinkingDelta(BaseModel):
     message_id: str
     text: str
+    subagent_id: str | None = None  # set when produced inside a CLI-native subagent
 
 
 class Thinking(BaseModel):
     message_id: str
     text: str
+    subagent_id: str | None = None  # set when produced inside a CLI-native subagent
 
 
 class ToolCall(BaseModel):
@@ -170,6 +174,7 @@ class ToolCall(BaseModel):
     kind: ToolKind
     input: dict[str, Any] = Field(default_factory=dict)
     summary: str | None = None  # one-line human description ("npm test", "src/app.ts düzenlendi")
+    subagent_id: str | None = None  # set when produced inside a CLI-native subagent
 
 
 class ToolResultEv(BaseModel):
@@ -178,6 +183,7 @@ class ToolResultEv(BaseModel):
     is_error: bool = False
     exit_code: int | None = None
     blob_ref: str | None = None
+    subagent_id: str | None = None  # set when produced inside a CLI-native subagent
 
 
 class FileChanged(BaseModel):
@@ -185,6 +191,7 @@ class FileChanged(BaseModel):
     change: Literal["add", "modify", "delete", "rename"]
     diff: str | None = None
     old_path: str | None = None
+    subagent_id: str | None = None  # set when produced inside a CLI-native subagent
 
 
 class Usage(BaseModel):
@@ -198,6 +205,27 @@ class Usage(BaseModel):
     duration_ms: int | None = None
     api_equivalent_usd: float | None = None  # informational only (subscriptions)
     turns: int | None = None
+    subagent_id: str | None = None  # set when produced inside a CLI-native subagent
+
+
+class SubagentStarted(BaseModel):
+    """A CLI-native subagent was spawned inside this session (Claude Task/Agent tool, Codex
+    sub-agent thread). Payloads produced inside it carry ``subagent_id``."""
+
+    subagent_id: str  # Claude: the spawning tool_use id; Codex: the sub-agent thread id
+    parent_call_id: str | None = None  # ToolCall.call_id that spawned it, when known
+    parent_subagent_id: str | None = None  # nested subagents
+    name: str | None = None  # agent type / role ("general-purpose", "explorer", "reviewer")
+    description: str | None = None  # short task description
+    prompt: str | None = None  # truncated
+    model: str | None = None
+
+
+class SubagentCompleted(BaseModel):
+    subagent_id: str
+    status: Literal["success", "error", "interrupted"] = "success"
+    result_text: str | None = None  # truncated
+    usage: Usage | None = None
 
 
 class TurnCompleted(BaseModel):
@@ -253,6 +281,8 @@ PAYLOAD_EVENT_TYPE: dict[type[BaseModel], str] = {
     TurnCompleted: "agent.turn.completed",
     SessionEnded: "agent.session.ended",
     AgentErrorEv: "agent.error",
+    SubagentStarted: "agent.subagent.started",
+    SubagentCompleted: "agent.subagent.completed",
 }
 EPHEMERAL_PAYLOADS: tuple[type[BaseModel], ...] = (MessageDelta, ThinkingDelta)
 

@@ -89,6 +89,22 @@ class ET:
     AGENT_ERROR = "agent.error"
     AGENT_STALLED = "agent.stalled"  # no output for N minutes (critical alert)
     AGENT_HANDOFF = "agent.handoff"
+    AGENT_SUBAGENT_STARTED = "agent.subagent.started"  # CLI-native subagent (payloads: contracts/agents.py)
+    AGENT_SUBAGENT_COMPLETED = "agent.subagent.completed"
+
+    # Team orchestration (spec §25; payload fields documented in engine/team)
+    TEAM_STARTED = "team.started"  # {node_id, members}
+    TEAM_MEMBER = "team.member"  # {node_id, member_id, status, session_id?, assignment_id?}
+    TEAM_ASSIGNMENT_CREATED = "team.assignment.created"  # {assignment}
+    TEAM_ASSIGNMENT_STARTED = "team.assignment.started"
+    TEAM_ASSIGNMENT_COMPLETED = "team.assignment.completed"
+    TEAM_ASSIGNMENT_FAILED = "team.assignment.failed"
+    TEAM_REPORT = "team.report"  # member -> advisor {from_member, advisor, summary}
+    TEAM_ADVICE = "team.advice"  # advisor -> member {advisor, to_member, text}
+    TEAM_MERGE = "team.merge"  # member worktree -> parent {from_member, to_member, status, conflicts}
+    TEAM_TEST = "team.test"  # tester verdict {tester, member, status, summary, round}
+    TEAM_FINISHED = "team.finished"  # {node_id, summary}
+    CONFLICT_RESOLVED = "conflict.resolved"
 
     LIMIT_UPDATED = "limit.updated"
     LIMIT_WARNING = "limit.warning"  # crossed 80%

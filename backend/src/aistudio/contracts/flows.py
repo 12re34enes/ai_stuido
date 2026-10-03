@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 from aistudio.contracts.agents import AgentRole, Boundaries
 from aistudio.contracts.common import Provider
 from aistudio.contracts.limits import Budget, LimitPolicy
+from aistudio.contracts.teams import TeamSpec
 
 
 class NodeKind(StrEnum):
@@ -38,6 +39,7 @@ class NodeKind(StrEnum):
     git = "git"
     deploy = "deploy"
     human = "human"
+    team = "team"  # a user-designed agent hierarchy (contracts/teams.py)
 
 
 class GateKind(StrEnum):
@@ -165,6 +167,16 @@ class HumanNodeConfig(BaseModel):
     input_schema: dict[str, Any] | None = None  # optional JSON schema for structured input
 
 
+class TeamNodeConfig(BaseModel):
+    """Runs a team (spec §25): the lead gets the rendered prompt and delegates down the tree."""
+
+    kind: Literal[NodeKind.team] = NodeKind.team
+    team_id: str | None = None  # saved team template (latest version) ...
+    team: TeamSpec | None = None  # ... or an inline spec (wins over team_id)
+    prompt_template: str = "{{ input.prompt }}"
+    repo_ids: list[str] | None = None
+
+
 NodeConfig = Annotated[
     AgentNodeConfig
     | AdvisorNodeConfig
@@ -245,4 +257,5 @@ class FlowMode(StrEnum):
     race = "race"  # Yarış
     pipeline = "pipeline"  # Hat
     council = "council"  # Kurul
+    team = "team"  # Ekip (spec §25)
     custom = "custom"

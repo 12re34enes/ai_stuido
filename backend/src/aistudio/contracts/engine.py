@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from aistudio.contracts.flows import FlowGraph, FlowMode
 from aistudio.contracts.limits import Budget
+from aistudio.contracts.teams import TeamSpec
 
 TaskStatus = Literal["draft", "queued", "running", "waiting", "completed", "failed", "cancelled"]
 RunStatus = Literal["running", "waiting", "completed", "failed", "cancelled"]
@@ -23,6 +24,8 @@ class TaskCreate(BaseModel):
     flow_id: str | None = None  # saved flow; overrides mode
     studio_id: str | None = None  # studio template; overrides mode
     graph: FlowGraph | None = None  # explicit graph; overrides everything
+    team_id: str | None = None  # mode=team: saved team template
+    team: TeamSpec | None = None  # mode=team: inline team spec (wins over team_id)
     repo_ids: list[str] | None = None  # None = all workspace repos
     base_ref: str | None = None
     inputs: dict[str, Any] = Field(default_factory=dict)

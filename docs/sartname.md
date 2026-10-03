@@ -618,3 +618,52 @@ ai_stuido/
 | Abonelik limitleri yoğun paralel kullanımda hızla dolar | Bütçeler, kuyruk ve sağlayıcı yönlendirme |
 | "AI Studio" adı Google AI Studio'ya benziyor | Yalnız iç kullanımda sorun değil |
 | Sağlayıcı logoları | Yalnız iç kullanım. Değiştirilebilir varlık olarak tutulur |
+
+## 25. Ekip orkestrasyonu (hiyerarşik ajanlar)
+
+Kullanıcı ajanlardan bir **ekip** kurar ve görevi o ekibe verir. Sözleşme: `backend/src/aistudio/contracts/teams.py`.
+
+### Roller
+
+| Rol | Görev |
+|---|---|
+| **Danışman** | Kod yazmaz. Bağlı olduğu üyeden (genelde lider) rapor alır ve danışma sorularını yanıtlar. Önerileri ilgili üyeye iletilir |
+| **Lider** | Ekipte tam olarak bir tane bulunur. Görevi alır, işi doğrudan altındaki üyelere böler, sonuçları birleştirir ve görevi bitirir |
+| **Üye (geliştirici/uzman)** | Kendisine verilen işi yapar. Altında üye varsa işi onlara da dağıtabilir. Derinlik ayarlanabilir, varsayılan en fazla 4 seviye |
+| **Test ajanı** | İki biçimde çalışır. **Bağımlı**: bir üyenin her işinden sonra o üyenin çıktısını test eder, başarısızlık o üyeye düzeltme olarak geri döner (tur sınırı var). **Bağımsız**: üstündeki üyenin birleştirilmiş çalışmasını test eder; her birleştirmeden sonra ya da en sonda tetiklenir |
+
+Her üyenin ayrı ayrı ayarlanabilenleri:
+- sağlayıcı (Claude/Codex)
+- model
+- **effort**
+- profil
+- talimat
+- yazma izni
+- sınırlar
+
+### Çalışma
+
+- **Görev dağıtma:** Lider ve altında üye olan herkes Studio araçlarıyla iş dağıtır:
+  - `team_delegate`: işi bir alt üyeye verir; başlık, talimat ve bağımlılıklarla
+  - `team_wait`: verilen işlerin sonuçlarını bekler
+  - `team_consult`: danışmana soru sorar
+  - `team_report`: ilerleme raporu gönderir
+  - `team_finish`: işi bitirir
+- **Oturum ve worktree:** Her üyenin kendi oturumu ve kendi worktree'si olur. Üyenin worktree'si, yöneticisinin worktree'sinden dallanır. İş bitince üyenin değişiklikleri yöneticisinin branch'ine birleştirilir. Çakışma olursa yöneticiye çakışan dosyalarla birlikte bildirilir.
+- **Danışmana rapor:** `on_demand` (yalnız sorulduğunda), `each_assignment` (her iş bitince, varsayılan) veya `periodic` (belirli aralıklarla). Danışmanın önerisi üyenin akışına aktarılır.
+- **Akış içindeki yeri:** Ekip, akışta `team` düğümü olarak çalışır. Ardından normal kapılar gelir: build/test, çapraz inceleme, son onay. Modlar arasında **"Ekip"** yer alır, hazır şablonlardan seçilir.
+- **Güvenlik sınırları:** En fazla eşzamanlı üye, en fazla iş sayısı, limit ve bütçe kontrolleri motor tarafından uygulanır.
+
+### Yerel alt ajanlar
+
+Tek ajanla çalışırken Claude'un Task/Agent aracıyla ya da Codex'in alt ajan thread'leriyle açtığı alt ajanlar da görünür. Adaptörler bunlar için `agent.subagent.started` / `agent.subagent.completed` olaylarını üretir. Alt ajanın içinde üretilen her olay `subagent_id` taşır. Arayüz oturumu bir ağaç olarak gösterir.
+
+### Görsel
+
+- **Ekip kurucu:** Organizasyon şeması gibi çalışır. Sürükleyip yeniden bağlama, üye/test ajanı/danışman ekleme, her üye için ayar paneli ve hazır şablonlar var.
+- **Canlı ekip görünümü:**
+  - **Düğüm kartları:** Her düğümde sağlayıcı stili, durum noktası, üzerinde çalıştığı iş, bağlam penceresi halkası, token ve effort rozeti bulunur.
+  - **Kenar hareketleri:** İş devredilince kenarda aşağı doğru bir iz akar, sonuç dönünce yukarı. Danışman bağlantısı rapor ve öneride nabız atar.
+  - **Etkileşim:** Üzerine gelince açılan kart detayları gösterir. Tıklanınca canlı akış açılır ve oradan ajana mesaj gönderilebilir.
+  - **Zaman çizelgesi:** Altta işlerin Gantt benzeri bir şeridi var.
+  - **Yerel alt ajanlar:** Kendi düğümlerinin altında noktalı çocuk düğümler olarak görünür.
