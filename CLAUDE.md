@@ -31,7 +31,18 @@ cd backend && uv run pytest tests/<module> # one module
 cd backend && uv run ruff check src tests && uv run ruff format src tests
 cd backend && uv run pyright               # must stay at 0 errors
 cd apps/desktop && pnpm install && pnpm typecheck && pnpm lint && pnpm test
+cd apps/desktop && CI=1 E2E_PORT=<free port> pnpm e2e   # Playwright against a mocked studiod
+cd apps/desktop/src-tauri && cargo test && cargo clippy --all-targets -- -D warnings
+make check                                 # secret scan + lint + typecheck + tests, both sides
+make demo                                  # real studiod + fake CLIs + seeded data (UI exploration, screenshots)
+make dev / make dev-app                    # real CLIs; data in .aistudio-dev/
+make verify-clis                           # real claude/codex on the Mac; rerun after CLI upgrades
+scripts/package/build-macos-app.sh [--dmg] # self-contained AI Studio.app with embedded studiod
 ```
+
+- Parallel worktrees: give every Playwright run its own `E2E_PORT` (and `CI=1` so it never reuses a
+  server another worktree started); demo servers take `AISTUDIO_PORT` / `AISTUDIO_WEB_PORT`.
+- Stop dev servers by PID. Never `pkill -f vite|aistudio` — it kills other agents' processes too.
 
 ## Language
 
@@ -85,3 +96,6 @@ cd apps/desktop && pnpm install && pnpm typecheck && pnpm lint && pnpm test
 ## Git
 
 - Small, focused commits with clear English messages. Don't commit generated or local runtime files.
+- Never commit secret-shaped literals, not even fake ones in tests (AWS/GitHub/GitLab/Slack/Anthropic/
+  OpenAI keys, private keys, JWTs): GitHub push protection rejects the push. Build test tokens at
+  runtime (`"ghp_" + "x" * 36`). `make check-secrets` scans tracked files.
