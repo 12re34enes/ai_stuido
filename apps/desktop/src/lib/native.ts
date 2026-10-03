@@ -1,11 +1,11 @@
 /**
- * Adapter to the Tauri shell bridge (`src/native/`, built by the native workstream).
+ * Adapter between the app shell and the Tauri bridge (`src/native/`).
  *
- * The bridge module is picked up with an eager `import.meta.glob`, so this file compiles and
- * runs whether or not `src/native/index.ts` exists yet: without it every helper is a no-op.
- * Once the native module is on main, this keeps working unchanged (it may also be replaced by
- * direct `import … from "@/native"` calls).
+ * The bridge is imported directly and checked against the subset the web app relies on, so a
+ * signature change in `src/native/` fails the typecheck here. In a plain browser the bridge's
+ * helpers are no-ops.
  */
+import * as native from "@/native";
 
 export interface DeepLink {
   kind: "approval" | "task" | "run" | string;
@@ -28,19 +28,17 @@ type MaybeAsync<T> = T | Promise<T>;
 
 /** The subset of the bridge the web app relies on (shapes per the native workstream's contract). */
 export interface NativeBridge {
-  initNativeShell?: () => MaybeAsync<void>;
+  initNativeShell?: () => MaybeAsync<void | (() => void)>;
   isTauri?: () => boolean;
   onDeepLink?: (cb: (link: DeepLink) => void) => MaybeAsync<Unlisten | void>;
   onShellAction?: (cb: (action: ShellAction) => void) => MaybeAsync<Unlisten | void>;
   setTrayState?: (state: TrayState) => MaybeAsync<void>;
 }
 
-const modules = import.meta.glob<NativeBridge>("../native/index.ts", { eager: true });
+export const nativeBridge: NativeBridge = native;
 
-export const nativeBridge: NativeBridge = modules["../native/index.ts"] ?? {};
-
-/** Whether the native bridge module is present in this build. */
-export const hasNativeBridge = Boolean(modules["../native/index.ts"]);
+/** Kept for callers written before the bridge landed; the bridge is always part of the build now. */
+export const hasNativeBridge = true;
 
 /** Call once at startup (main.tsx). Never throws: the web build runs without the shell. */
 export function initNative(): void {
