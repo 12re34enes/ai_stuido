@@ -649,14 +649,30 @@ Her üyenin ayrı ayrı ayarlanabilenleri:
   - `team_consult`: danışmana soru sorar
   - `team_report`: ilerleme raporu gönderir
   - `team_finish`: işi bitirir
+- **Kimin hangi aracı kullandığı:** Altında üye olanlar `team_delegate` ve `team_wait` kullanır. Lider ve tüm üyeler `team_finish` ile bitirir. Zincirinde danışman olanlar `team_consult` ve `team_report` kullanır. Danışman ve test ajanları ekip aracı almaz. Ekip araçları yalnız ekip üyelerine bağlanır; sıradan oturumlar bunları görmez.
 - **Oturum ve worktree:** Her üyenin kendi oturumu ve kendi worktree'si olur. Üyenin worktree'si, yöneticisinin worktree'sinden dallanır. İş bitince üyenin değişiklikleri yöneticisinin branch'ine birleştirilir. Çakışma olursa yöneticiye çakışan dosyalarla birlikte bildirilir.
 - **Danışmana rapor:** `on_demand` (yalnız sorulduğunda), `each_assignment` (her iş bitince, varsayılan) veya `periodic` (belirli aralıklarla). Danışmanın önerisi üyenin akışına aktarılır.
 - **Akış içindeki yeri:** Ekip, akışta `team` düğümü olarak çalışır. Ardından normal kapılar gelir: build/test, çapraz inceleme, son onay. Modlar arasında **"Ekip"** yer alır, hazır şablonlardan seçilir.
 - **Güvenlik sınırları:** En fazla eşzamanlı üye, en fazla iş sayısı, limit ve bütçe kontrolleri motor tarafından uygulanır.
+- **Test ajanları:** Bağımlı test başarısız olursa iş, `test_max_rounds` kez düzeltme olarak üyeye döner. Son turda da başarısızsa iş yine birleştirilir ve başarısız sonuç yöneticiye bildirilir. Danışman ve test ajanları, açıkça yazma izni verilmedikçe salt okumadır.
+- **Hazır şablonlar:** Danışmanlı ekip, Derin ekip (üç geliştirici ve her birinin altında iki alt ajan), Arayüz ve test ekibi, Hızlı ekip. Varsayılan ekip `engine.default_team_id` ayarıyla seçilir; zamanlanmış görevler de ekip seçebilir.
+- **API:**
+  - Şablonlar: `/api/engine/teams` (sürümlü kayıt; yerleşik şablonlar kopya olarak kaydedilir) ve `/api/engine/teams/validate`.
+  - Canlı durum: `GET /api/engine/runs/{id}/team`.
+  - Üyeye mesaj: `POST /api/engine/runs/{id}/team/members/{üye}/message` (`send` veya `steer`).
+  - Olaylar: `team.*` ve `agent.handoff`.
 
 ### Yerel alt ajanlar
 
-Tek ajanla çalışırken Claude'un Task/Agent aracıyla ya da Codex'in alt ajan thread'leriyle açtığı alt ajanlar da görünür. Adaptörler bunlar için `agent.subagent.started` / `agent.subagent.completed` olaylarını üretir. Alt ajanın içinde üretilen her olay `subagent_id` taşır. Arayüz oturumu bir ağaç olarak gösterir.
+Tek ajanla çalışırken Claude'un Task/Agent aracıyla ya da Codex'in alt ajan thread'leriyle açtığı alt ajanlar da görünür.
+
+- **Olaylar:** Adaptörler `agent.subagent.started` / `agent.subagent.completed` olaylarını üretir.
+  - `started` tekrar gelebilir: ad veya model sonradan öğrenilince, ya da biten bir alt ajan yeniden çalışınca.
+  - Alt ajanın içinde üretilen her olay `subagent_id` taşır.
+- **Canlı token sayıları:** `subagent_id` taşıyan `agent.usage` olayları, alt ajanın o anki toplamını `partial` olarak taşır. Görev başına toplamlar `partial` kullanımı saymaz; son toplam `completed.usage` içindedir. Aynı kural, Codex'in tur içindeki canlı kullanım güncellemeleri için de geçerlidir.
+- **İzin istekleri:** Alt ajanın izin isteği, hangi alt ajanın sorduğunu da gösterir.
+- **API:** `GET /api/agents/sessions/{id}/subagents` düz liste döndürür (önce ebeveynler). Oturum kayıtları `subagent_count` ve `active_subagents` taşır.
+- **Arayüz:** Oturumu bir ağaç olarak, akışta da iç içe bloklar olarak gösterir.
 
 ### Görsel
 
