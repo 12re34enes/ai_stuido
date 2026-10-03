@@ -25,6 +25,7 @@ from aistudio.contracts.flows import (
     FlowGraph,
     FlowNode,
     Position,
+    TeamNodeConfig,
 )
 
 LOOP_CONDITIONS: frozenset[str] = frozenset({"failed", "false", "rejected"})
@@ -214,9 +215,9 @@ class Topology:
 
 
 def is_writer(node: FlowNode) -> bool:
-    """Nodes whose result is a set of worktrees (a writing agent, or a race winner)."""
+    """Nodes whose result is a set of worktrees (a writing agent, a race winner, a team's lead)."""
     cfg = node.config
-    return (isinstance(cfg, AgentNodeConfig) and cfg.writes) or isinstance(cfg, CompareNodeConfig)
+    return (isinstance(cfg, AgentNodeConfig) and cfg.writes) or isinstance(cfg, CompareNodeConfig | TeamNodeConfig)
 
 
 def is_opinion(node: FlowNode) -> bool:

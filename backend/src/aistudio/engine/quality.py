@@ -9,6 +9,8 @@ Quality score of a completed run, 0..100, with a transparent formula::
     tests             25%  share of studiod-run build/test commands that passed in the latest check
     rework            10%  1 − 0.25 × loop-backs (review/build/approval rounds)
     user_rating       10%  (rating − 1) / 4 for a 1..5 user rating
+    team              15%  team runs only: 1 − 0.1 × test fix rounds − 0.1 × failed test verdicts
+                           − 0.2 × conflicting team integrations − 0.25 × failed assignments
 
 A component that does not apply (no reviews, no commands, no rating...) is left out and its
 weight is redistributed over the others.
@@ -33,17 +35,38 @@ WEIGHTS: dict[str, float] = {
     "tests": 25.0,
     "rework": 10.0,
     "user_rating": 10.0,
+    "team": 15.0,
 }
 SEVERITY_PENALTY: dict[str, float] = {"critical": 40.0, "high": 15.0, "medium": 5.0, "low": 1.0}
 FORMULA = (
     "Puan = 100 × Σ(ağırlık × değer) / Σ(ağırlık). Uygulanamayan bileşenler hesaba katılmaz, ağırlıkları "
     "diğerlerine dağıtılır. Ağırlıklar: kapıların ilk denemede geçmesi %30, inceleme bulguları %25, "
-    "build/test komutları %25, tekrar turları %10, kullanıcı puanı %10."
+    "build/test komutları %25, tekrar turları %10, kullanıcı puanı %10, ekip çalışması %15 (yalnız ekip "
+    "görevlerinde: test düzeltme turları, başarısız testler, birleştirme çakışmaları ve başarısız işler)."
 )
 
 
+def team_quality_stats(assignments: list[Any]) -> dict[str, int] | None:
+    """Counts the team component uses (``assignments``: engine team assignments of one run)."""
+    if not assignments:
+        return None
+    work = [a for a in assignments if a.kind == "work"]
+    return {
+        "assignments": len(work),
+        "test_rounds": sum(max(0, a.round - 1) for a in work),
+        "test_failures": sum(1 for a in assignments if a.kind != "work" and a.status == "failed"),
+        "merge_conflicts": sum(1 for a in work if a.merge is not None and a.merge.status == "conflict"),
+        "failed": sum(1 for a in work if a.status == "failed"),
+    }
+
+
 def compute_quality(
-    gates: list[GateResult], state: RunState, rating: int | None, *, run_id: str | None = None
+    gates: list[GateResult],
+    state: RunState,
+    rating: int | None,
+    *,
+    run_id: str | None = None,
+    team: dict[str, int] | None = None,
 ) -> QualityBreakdown:
     components: list[QualityComponent] = []
 
@@ -133,6 +156,28 @@ def compute_quality(
         )
     )
 
+    if team is not None:
+        penalty_team = (
+            0.1 * team.get("test_rounds", 0)
+            + 0.1 * team.get("test_failures", 0)
+            + 0.2 * team.get("merge_conflicts", 0)
+            + 0.25 * team.get("failed", 0)
+        )
+        components.append(
+            QualityComponent(
+                key="team",
+                label="Ekip çalışması",
+                weight=WEIGHTS["team"],
+                value=max(0.0, 1.0 - penalty_team),
+                detail=(
+                    f"{team.get('assignments', 0)} iş: {team.get('test_rounds', 0)} test düzeltme turu, "
+                    f"{team.get('test_failures', 0)} başarısız test, {team.get('merge_conflicts', 0)} birleştirme "
+                    f"çakışması, {team.get('failed', 0)} başarısız iş."
+                ),
+                raw=dict(team),
+            )
+        )
+
     applicable = [c for c in components if c.value is not None]
     total_weight = sum(c.weight for c in applicable)
     score = (
@@ -146,7 +191,8 @@ async def compute_for_run(rt: EngineRuntime, task_id: str, run_id: str) -> Quali
     task_row = await rt.store.task_row(task_id)
     gates = await rt.store.gate_results(run_id)
     state = RunState.model_validate(row["state"] or {})
-    return compute_quality(gates, state, task_row["rating"], run_id=run_id)
+    team = team_quality_stats(await rt.team_store.assignments(run_id))
+    return compute_quality(gates, state, task_row["rating"], run_id=run_id, team=team)
 
 
 async def compute_and_store(rt: EngineRuntime, task_id: str, run_id: str) -> QualityBreakdown:

@@ -1,8 +1,8 @@
-"""Built-in mode templates (spec §5): Tek, İkili, Yarış, Hat, Kurul.
+"""Built-in mode templates (spec §5, §25): Tek, İkili, Yarış, Hat, Kurul, Ekip.
 
 Modes are plain graphs. Node ids are stable so prompt templates and the UI can refer to them:
 ``plan``, ``plan_gate``, ``dev``, ``dev_a``/``dev_b``, ``boundary``, ``build``, ``review``,
-``test``, ``final``, ``compare``, ``merge``, ``advisor_a``/``advisor_b``, ``synthesis``.
+``test``, ``final``, ``compare``, ``merge``, ``advisor_a``/``advisor_b``, ``synthesis``, ``team``.
 """
 
 from __future__ import annotations
@@ -24,7 +24,9 @@ from aistudio.contracts.flows import (
     NodeConfig,
     ParallelNodeConfig,
     SynthesisNodeConfig,
+    TeamNodeConfig,
 )
+from aistudio.contracts.teams import TeamSpec
 from aistudio.engine.graph import auto_layout
 from aistudio.engine.models import ModeInfo
 
@@ -55,6 +57,14 @@ MODE_INFO: dict[FlowMode, ModeInfo] = {
         mode=FlowMode.council,
         label="Kurul",
         description="Danışmanlar bağımsız görüş verir; karşı tez ve sentezle tek karar belgesi yazılır.",
+    ),
+    FlowMode.team: ModeInfo(
+        mode=FlowMode.team,
+        label="Ekip",
+        description=(
+            "Lider görevi ekibine dağıtır; üyeler kendi worktree'lerinde çalışır ve sonuçlar liderde birleşir. "
+            "Ardından build/test, çapraz inceleme ve son onay gelir."
+        ),
     ),
     FlowMode.custom: ModeInfo(
         mode=FlowMode.custom,
@@ -93,6 +103,13 @@ testlerin ortaya çıkardığı açık hatalar için değiştir.
 
 ## Geliştiricinin özeti
 {{ nodes.dev.output | clip(3000) }}
+{% if feedback.text %}
+
+## Düzeltilmesi gerekenler (tur {{ feedback.round }})
+{{ feedback.text }}
+{% endif %}"""
+
+TEAM_PROMPT = """{{ input.prompt }}
 {% if feedback.text %}
 
 ## Düzeltilmesi gerekenler (tur {{ feedback.round }})
@@ -260,6 +277,28 @@ def _council(primary: Provider) -> tuple[list[FlowNode], list[FlowEdge]]:
     return nodes, edges
 
 
+def _team(team: TeamSpec | None, team_id: str | None) -> tuple[list[FlowNode], list[FlowEdge]]:
+    # The reviewer is the provider other than the lead's (decided at run time from the team's lead).
+    nodes = [
+        _node("team", "Ekip", TeamNodeConfig(team=team, team_id=team_id, prompt_template=TEAM_PROMPT)),
+        _gate("boundary", "Sınır denetimi", GateKind.boundary_check, max_rounds=2),
+        _gate("build", "Build/test kanıtı", GateKind.build_test, max_rounds=3),
+        _gate("review", "Çapraz inceleme", GateKind.cross_review, max_rounds=3),
+        _gate("final", "Son onay", GateKind.user_final, max_rounds=2),
+    ]
+    edges = [
+        _edge("team", "boundary"),
+        _edge("boundary", "build"),
+        _edge("build", "review"),
+        _edge("review", "final"),
+        _edge("boundary", "team", "failed"),
+        _edge("build", "team", "failed"),
+        _edge("review", "team", "failed"),
+        _edge("final", "team", "failed"),
+    ]
+    return nodes, edges
+
+
 _BUILDERS = {
     FlowMode.single: _single,
     FlowMode.duo: _duo,
@@ -270,9 +309,19 @@ _BUILDERS = {
 
 
 def build_mode_graph(
-    mode: FlowMode, *, primary: Provider = "claude", settings: FlowSettings | None = None
+    mode: FlowMode,
+    *,
+    primary: Provider = "claude",
+    settings: FlowSettings | None = None,
+    team: TeamSpec | None = None,
+    team_id: str | None = None,
 ) -> FlowGraph:
-    """Graph for a mode. ``custom`` returns an empty graph (the canvas starts from scratch)."""
+    """Graph for a mode. ``custom`` returns an empty graph (the canvas starts from scratch). ``team`` /
+    ``team_id`` choose the team of ``FlowMode.team`` (default: the engine's default team)."""
+    if mode == FlowMode.team:
+        nodes, edges = _team(team, team_id)
+        graph = FlowGraph(nodes=nodes, edges=edges, settings=settings or FlowSettings())
+        return auto_layout(graph)
     builder = _BUILDERS.get(mode)
     if builder is None:
         return FlowGraph(settings=settings or FlowSettings())

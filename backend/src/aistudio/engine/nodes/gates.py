@@ -223,6 +223,9 @@ async def _command_log(nctx: NodeContext, target: WriterTarget) -> list[str]:
     sid = target.data.get("session_id")
     if isinstance(sid, str):
         session_ids.add(sid)
+    extra = target.data.get("session_ids")  # team nodes: every member session
+    if isinstance(extra, list):
+        session_ids.update(s for s in extra if isinstance(s, str))
     commands: list[str] = []
     for s in session_ids:
         events = await nctx.rt.ctx.events.query(EventFilter(session_id=s, types=["agent.tool.call"]), limit=5000)

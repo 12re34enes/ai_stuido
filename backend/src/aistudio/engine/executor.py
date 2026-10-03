@@ -63,6 +63,7 @@ _CHECKPOINT_KINDS = frozenset(
         NodeKind.git,
         NodeKind.deploy,
         NodeKind.human,
+        NodeKind.team,
     }
 )
 
@@ -831,14 +832,18 @@ class RunExecutor:
         else:
             await self._emit("task.updated", {"status": "cancelled", "reason": error})
 
-    async def _checkpoint(self, nid: str, nrid: str) -> None:
+    async def checkpoint(self, nid: str, nrid: str, *, label: str | None = None) -> None:
+        """Checkpoint every worktree of the run now (team nodes call it after each merge)."""
+        await self._checkpoint(nid, nrid, label=label)
+
+    async def _checkpoint(self, nid: str, nrid: str, *, label: str | None = None) -> None:
         node = self.topo.nodes[nid]
         wt_ids = sorted({w for per_repo in self.state.worktrees.values() for w in per_repo.values()})
         refs: dict[str, str] = {}
         memory_commit: str | None = None
         gitops_id: str | None = None
         wm = self.rt.maybe_worktrees()
-        label = f"{node.label} sonrası"
+        label = label or f"{node.label} sonrası"
         if wm is not None and wt_ids:
             try:
                 ck = await wm.checkpoint(

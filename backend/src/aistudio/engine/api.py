@@ -35,6 +35,7 @@ from aistudio.engine.models import (
 )
 from aistudio.engine.modes import MODE_INFO
 from aistudio.engine.service import FlowEngineImpl, TaskDocument
+from aistudio.engine.team.api import add_team_routes
 
 ExportFmt = Literal["md", "html", "json"]
 _EXT = {"md": "md", "html": "html", "json": "json"}
@@ -76,7 +77,7 @@ def build_router(get_engine: Callable[[], FlowEngineImpl]) -> APIRouter:
     @r.post("/tasks", response_model=TaskDetail, status_code=201)
     async def create_task(body: TaskCreateBody) -> TaskDetail:
         engine = get_engine()
-        req = body.model_dump(exclude={"start_on_reset"})
+        req = body.model_dump(exclude={"start_on_reset"}, exclude_unset=True)
         task = await engine.create_task(TaskCreate.model_validate(req), start_on_reset=body.start_on_reset)
         return await engine.task_detail(task.id)
 
@@ -246,4 +247,5 @@ def build_router(get_engine: Callable[[], FlowEngineImpl]) -> APIRouter:
     async def agent_stats(workspace_id: str | None = None, days: int | None = None) -> AgentStatsReport:
         return await get_engine().agent_stats(workspace_id=workspace_id, days=days)
 
+    add_team_routes(r, get_engine)
     return r

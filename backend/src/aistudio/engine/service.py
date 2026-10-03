@@ -24,7 +24,9 @@ from aistudio.contracts.flows import (
     GateKind,
     GateNodeConfig,
     SynthesisNodeConfig,
+    TeamNodeConfig,
 )
+from aistudio.contracts.teams import TeamSpec
 from aistudio.core.clock import utcnow
 from aistudio.core.context import AppContext
 from aistudio.core.errors import Conflict, NotFound, StudioError, ValidationFailed
@@ -58,6 +60,8 @@ from aistudio.engine.nodes.base import NodeContext
 from aistudio.engine.runtime import EngineRuntime
 from aistudio.engine.scheduler import Scheduler, next_fire, validate_cron
 from aistudio.engine.store import EngineStore, Row, task_from_row
+from aistudio.engine.team.service import TeamService
+from aistudio.engine.team.templates import DEFAULT_TEAM_ID
 from aistudio.engine.templates import TemplateFailed
 from aistudio.engine.templates import render as render_template
 from aistudio.engine.validation import validate_graph
@@ -74,6 +78,7 @@ class FlowEngineImpl:
         self.scheduler = Scheduler(self)
         self._task_locks: dict[str, asyncio.Lock] = {}
         self._scheduler_task: asyncio.Task[None] | None = None
+        self.teams = TeamService(self)
 
     @property
     def store(self) -> EngineStore:
@@ -165,7 +170,9 @@ class FlowEngineImpl:
         value = await self.rt.setting("engine.default_provider")
         return value if value in ("claude", "codex") else "claude"
 
-    async def graph_for_mode(self, mode: FlowMode, *, workspace_id: str) -> FlowGraph:
+    async def graph_for_mode(
+        self, mode: FlowMode, *, workspace_id: str, team: TeamSpec | None = None, team_id: str | None = None
+    ) -> FlowGraph:
         settings = await self._workspace_engine_settings(workspace_id)
         primary = await self._default_provider(workspace_id)
         # Global Settings → Limitler defaults, then the workspace's own flow settings on top.
@@ -177,7 +184,9 @@ class FlowEngineImpl:
                 )
             except ValueError:
                 log.warning("invalid flow_settings for workspace %s", workspace_id)
-        return build_mode_graph(mode, primary=primary, settings=flow_settings)
+        if mode == FlowMode.team and team is None and not team_id and isinstance(settings.get("default_team_id"), str):
+            team_id = settings["default_team_id"]
+        return build_mode_graph(mode, primary=primary, settings=flow_settings, team=team, team_id=team_id)
 
     async def resolve_graph(self, task: Task, row: Row | None = None) -> FlowGraph:
         """Explicit graph > studio > saved flow > mode template."""
@@ -198,6 +207,10 @@ class FlowEngineImpl:
             )
         if task.flow_id:
             return (await self.store.get_flow(task.flow_id)).graph
+        if task.mode == FlowMode.team:
+            chosen = await self.rt.team_store.task_team(task.id)
+            team_id, team = chosen if chosen is not None else (None, None)
+            return await self.graph_for_mode(task.mode, workspace_id=task.workspace_id, team=team, team_id=team_id)
         return await self.graph_for_mode(task.mode, workspace_id=task.workspace_id)
 
     async def validate(self, graph: FlowGraph) -> ValidationReport:
@@ -211,7 +224,11 @@ class FlowEngineImpl:
             except Exception:
                 return None
 
-        return await validate_graph(graph, resolve_profile=resolve)
+        async def resolve_team(team_id: str) -> TeamSpec | None:
+            team = await self.teams.catalog.find(team_id)
+            return team.spec if team is not None else None
+
+        return await validate_graph(graph, resolve_profile=resolve, resolve_team=resolve_team)
 
     async def _ensure_valid(self, graph: FlowGraph) -> None:
         report = await self.validate(graph)
@@ -235,6 +252,17 @@ class FlowEngineImpl:
                 out.add(provider or default)
             if isinstance(cfg, GateNodeConfig) and cfg.gate == GateKind.cross_review:
                 out.update(("claude", "codex"))
+            if isinstance(cfg, TeamNodeConfig):
+                spec = cfg.team
+                if spec is None:
+                    found = await self.teams.catalog.find(cfg.team_id or DEFAULT_TEAM_ID)
+                    spec = found.spec if found is not None else None
+                for member in spec.members if spec is not None else []:
+                    member_provider: Provider = member.provider
+                    if member.profile_id and mgr is not None:
+                        with contextlib.suppress(Exception):
+                            member_provider = (await mgr.resolve_profile(member.profile_id)).provider
+                    out.add(member_provider)
         return out
 
     # ------------------------------------------------------------------ limits & queue
@@ -310,13 +338,24 @@ class FlowEngineImpl:
             if unknown:
                 raise ValidationFailed("Seçilen repo bu çalışma alanında yok.", details={"repo_ids": unknown})
         graph_json: dict[str, Any] | None = None
+        mode = req.mode
+        team_chosen = req.team is not None or bool(req.team_id)
+        uses_mode = req.graph is None and not req.flow_id and req.studio_id is None
+        if team_chosen and uses_mode and "mode" not in req.model_fields_set:
+            mode = FlowMode.team  # a team was picked without naming the mode
         if req.graph is not None:
             await self._ensure_valid(req.graph)
             graph_json = req.graph.model_dump(mode="json")
         elif req.flow_id:
             await self._ensure_valid((await self.store.get_flow(req.flow_id)).graph)
-        elif req.studio_id is None and req.mode == FlowMode.custom:
+        elif req.studio_id is None and mode == FlowMode.custom:
             raise ValidationFailed("Özel mod için kayıtlı bir akış seçin veya tuvalde bir akış çizin.")
+        save_team = uses_mode and mode == FlowMode.team and team_chosen
+        if save_team:
+            if req.team is not None:
+                self.teams.catalog.ensure_valid(req.team)
+            elif req.team_id and await self.teams.catalog.find(req.team_id) is None:
+                raise ValidationFailed("Ekip şablonu bulunamadı.", details={"team_id": req.team_id})
         now = utcnow()
         task_id = new_id("task")
         await self.store.insert_task(
@@ -325,7 +364,7 @@ class FlowEngineImpl:
                 "workspace_id": ws.id,
                 "title": title,
                 "prompt": prompt,
-                "mode": req.mode.value,
+                "mode": mode.value,
                 "flow_id": req.flow_id,
                 "studio_id": req.studio_id,
                 "graph": graph_json,
@@ -343,6 +382,8 @@ class FlowEngineImpl:
                 "updated_at": now,
             }
         )
+        if save_team:
+            await self.rt.team_store.set_task_team(task_id, team_id=req.team_id, team=req.team)
         task = await self.store.get_task(task_id)
         await self.emit_task(
             task,

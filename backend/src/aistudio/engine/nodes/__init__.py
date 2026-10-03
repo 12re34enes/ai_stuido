@@ -15,6 +15,7 @@ async def run_node(nctx: NodeContext) -> NodeOutcome:
     from aistudio.engine.nodes.gates import run_gate_node
     from aistudio.engine.nodes.ops import run_deploy_node, run_git_node, run_human_node, run_merge_node
     from aistudio.engine.nodes.synthesis import run_synthesis_node
+    from aistudio.engine.team.node import run_team_node
 
     handlers: dict[NodeKind, Callable[[NodeContext], Awaitable[NodeOutcome]]] = {
         NodeKind.agent: run_agent_node,
@@ -29,6 +30,7 @@ async def run_node(nctx: NodeContext) -> NodeOutcome:
         NodeKind.git: run_git_node,
         NodeKind.deploy: run_deploy_node,
         NodeKind.human: run_human_node,
+        NodeKind.team: run_team_node,
     }
     return await handlers[nctx.node.kind](nctx)
 

@@ -189,7 +189,8 @@ NodeConfig = Annotated[
     | MergeNodeConfig
     | GitNodeConfig
     | DeployNodeConfig
-    | HumanNodeConfig,
+    | HumanNodeConfig
+    | TeamNodeConfig,
     Field(discriminator="kind"),
 ]
 

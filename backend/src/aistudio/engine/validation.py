@@ -22,7 +22,9 @@ from aistudio.contracts.flows import (
     MergeNodeConfig,
     NodeKind,
     SynthesisNodeConfig,
+    TeamNodeConfig,
 )
+from aistudio.contracts.teams import TeamSpec
 from aistudio.engine.graph import (
     LOOP_CONDITIONS,
     Topology,
@@ -35,6 +37,7 @@ from aistudio.engine.models import ValidationIssue, ValidationReport
 from aistudio.engine.templates import check_expression, check_template
 
 ProfileResolver = Callable[[str], Awaitable[AgentProfile | None]]
+TeamResolver = Callable[[str], Awaitable[TeamSpec | None]]
 
 _NODE_ID = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 _GATE_LOOP_KINDS = (NodeKind.gate, NodeKind.condition)
@@ -55,7 +58,9 @@ async def _static_provider(
     return cfg.provider
 
 
-async def validate_graph(graph: FlowGraph, *, resolve_profile: ProfileResolver | None = None) -> ValidationReport:
+async def validate_graph(
+    graph: FlowGraph, *, resolve_profile: ProfileResolver | None = None, resolve_team: TeamResolver | None = None
+) -> ValidationReport:
     errors: list[ValidationIssue] = []
     warnings: list[ValidationIssue] = []
 
@@ -209,6 +214,8 @@ async def validate_graph(graph: FlowGraph, *, resolve_profile: ProfileResolver |
             err("missing_profile", "Deploy düğümü için bir deploy profili seçilmeli.", node_id=n.id)
         if isinstance(cfg, HumanNodeConfig) and not cfg.instructions.strip():
             err("missing_instructions", "Kullanıcı adımı için talimat yazılmalı.", node_id=n.id)
+        if isinstance(cfg, TeamNodeConfig):
+            await _check_team(n.id, cfg, resolve_team, err)
 
     if graph.settings.max_parallel_agents < 1:
         err("bad_value", "Aynı anda çalışacak ajan sayısı en az 1 olmalı.")
@@ -231,6 +238,25 @@ async def validate_graph(graph: FlowGraph, *, resolve_profile: ProfileResolver |
             )
 
     return ValidationReport(ok=not errors, errors=errors, warnings=warnings)
+
+
+async def _check_team(
+    node_id: str, cfg: TeamNodeConfig, resolve: TeamResolver | None, err: Callable[..., None]
+) -> None:
+    from aistudio.engine.team.validation import first_error, validate_team
+
+    if msg := check_template(cfg.prompt_template):
+        err("template", msg, node_id=node_id)
+    spec = cfg.team
+    if spec is None and cfg.team_id and resolve is not None:
+        spec = await resolve(cfg.team_id)
+        if spec is None:
+            err("team_not_found", f"Ekip şablonu bulunamadı: {cfg.team_id}", node_id=node_id)
+            return
+    if spec is not None:
+        report = validate_team(spec)
+        if not report.ok:
+            err("team_invalid", f"Ekip geçersiz: {first_error(report)}", node_id=node_id)
 
 
 async def _check_cross_review(

@@ -20,6 +20,8 @@ from aistudio.core.context import AppContext
 from aistudio.core.errors import Unavailable
 from aistudio.core.events import Event, Severity
 from aistudio.engine.store import EngineStore
+from aistudio.engine.team.hub import TeamHub
+from aistudio.engine.team.store import TeamStore
 
 SETTINGS_DEFAULTS: dict[str, Any] = {
     "engine.max_concurrent_runs": 3,
@@ -28,7 +30,9 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "engine.limit_poll_seconds": 60,
     "engine.command_timeout_seconds": 1800,
     "engine.scheduler_interval_seconds": 30,
-    "engine.turn_timeout_minutes": 0,  # 0 = unlimited
+    "engine.turn_timeout_minutes": 0,  # 0 = unlimited (team managers are never limited: they wait on others)
+    "engine.team_timeout_minutes": 0,  # whole team node; 0 = unlimited
+    "engine.default_team_id": "hizli-ekip",  # team used by mode=team when the task names none
 }
 
 
@@ -39,6 +43,8 @@ class EngineRuntime:
         self.ctx = ctx
         self.store = store
         self._provider_slots: dict[str, asyncio.Semaphore] = {}
+        self.team_store = TeamStore(store.db)
+        self.teams = TeamHub()  # team nodes running in this process (team tools resolve callers here)
 
     # ------------------------------------------------------------------ settings
     async def setting(self, key: str) -> Any:

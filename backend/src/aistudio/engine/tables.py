@@ -1,4 +1,4 @@
-"""Engine tables: saved flows, tasks, runs, node runs, gate results, evidence, schedules, checkpoints.
+"""Engine tables: saved flows, tasks, runs, node runs, gate results, evidence, schedules, checkpoints, teams.
 
 Run state that the executor needs to resume after a studiod restart lives in ``engine_runs.state``
 (edge deliveries, loop counters, ready queue, feedback) and ``engine_node_runs.state`` (per node
@@ -176,4 +176,85 @@ engine_checkpoints = sa.Table(
     json_col("snapshot", default={}),  # RunState + node statuses at that moment
     sa.Column("created_at", UTCDateTime, nullable=False),
     sa.Index("ix_engine_checkpoints_run", "run_id", "created_at"),
+)
+
+# --------------------------------------------------------------------------- teams (spec §25)
+
+# Saved team templates, one row per version (like flows). Built-in templates live in code
+# (``engine/team/templates.py``) and are never stored here.
+engine_teams = sa.Table(
+    "engine_teams",
+    metadata,
+    sa.Column("team_id", sa.String(80), primary_key=True),
+    sa.Column("version", sa.Integer, primary_key=True),
+    sa.Column("workspace_id", sa.String(40)),  # None = global team
+    sa.Column("name", sa.String(200), nullable=False),
+    sa.Column("description", sa.Text, nullable=False, default=""),
+    json_col("spec", default={}),  # TeamSpec
+    sa.Column("created_by", sa.String(120), nullable=False, default="user"),
+    sa.Column("archived", sa.Boolean, nullable=False, default=False),
+    sa.Column("created_at", UTCDateTime, nullable=False),
+    sa.Index("ix_engine_teams_workspace", "workspace_id"),
+)
+
+# The team chosen for a ``mode=team`` task (TaskCreate.team_id / TaskCreate.team).
+engine_task_teams = sa.Table(
+    "engine_task_teams",
+    metadata,
+    sa.Column("task_id", sa.String(40), primary_key=True),
+    sa.Column("team_id", sa.String(80)),
+    json_col("team", nullable=True),  # inline TeamSpec (wins over team_id)
+    sa.Column("created_at", UTCDateTime, nullable=False),
+)
+
+# Runtime state of one team node in one run. Spans attempts: a loop-back (e.g. a failed cross
+# review) continues with the same member sessions and worktrees.
+engine_team_runs = sa.Table(
+    "engine_team_runs",
+    metadata,
+    sa.Column("run_id", sa.String(40), primary_key=True),
+    sa.Column("node_id", sa.String(80), primary_key=True),
+    sa.Column("team_id", sa.String(80)),
+    sa.Column("team_version", sa.Integer),
+    sa.Column("team_name", sa.Text, nullable=False, default=""),
+    json_col("spec", default={}),  # TeamSpec snapshot
+    json_col("state", default={}),  # engine.team.models.TeamState
+    sa.Column("status", sa.String(16), nullable=False),  # running | completed | failed | cancelled
+    sa.Column("summary", sa.Text),
+    sa.Column("error", sa.Text),
+    sa.Column("created_at", UTCDateTime, nullable=False),
+    sa.Column("updated_at", UTCDateTime, nullable=False),
+)
+
+# Delegated work: manager -> subordinate ("work"), engine -> tester ("test": dependent,
+# "check": independent).
+engine_team_assignments = sa.Table(
+    "engine_team_assignments",
+    metadata,
+    sa.Column("id", sa.String(40), primary_key=True),
+    sa.Column("run_id", sa.String(40), nullable=False),
+    sa.Column("node_id", sa.String(80), nullable=False),
+    sa.Column("seq", sa.Integer, nullable=False),
+    sa.Column("kind", sa.String(16), nullable=False),
+    sa.Column("from_member", sa.String(80), nullable=False),
+    sa.Column("to_member", sa.String(80), nullable=False),
+    sa.Column("parent_id", sa.String(40)),  # assignment of from_member it was delegated in
+    sa.Column("target_id", sa.String(40)),  # test/check: the assignment under test
+    sa.Column("title", sa.Text, nullable=False),
+    sa.Column("instructions", sa.Text, nullable=False, default=""),
+    json_col("depends_on", default=[]),
+    sa.Column("status", sa.String(16), nullable=False),
+    sa.Column("phase", sa.String(16), nullable=False, default="work"),  # work | test | merge | done
+    sa.Column("round", sa.Integer, nullable=False, default=1),
+    sa.Column("session_id", sa.String(40)),
+    sa.Column("worktree_id", sa.String(40)),
+    sa.Column("result_summary", sa.Text),
+    sa.Column("error", sa.Text),
+    json_col("merge", nullable=True),
+    json_col("tests", default=[]),
+    sa.Column("delivered", sa.Boolean, nullable=False, default=False),
+    sa.Column("created_at", UTCDateTime, nullable=False),
+    sa.Column("started_at", UTCDateTime),
+    sa.Column("finished_at", UTCDateTime),
+    sa.Index("ix_engine_team_assignments_run", "run_id", "node_id", "seq"),
 )

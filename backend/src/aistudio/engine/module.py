@@ -12,6 +12,7 @@ from aistudio.engine import tables as _tables  # noqa: F401  (registers engine t
 from aistudio.engine.api import build_router
 from aistudio.engine.runtime import SETTINGS_DEFAULTS
 from aistudio.engine.service import FlowEngineImpl
+from aistudio.engine.team.tools import team_tools
 from aistudio.engine.tools import engine_tools
 
 
@@ -31,6 +32,8 @@ class EngineModule(Module):
         if registry is not None:
             for tool in engine_tools(self.engine):
                 registry.register(tool)
+            for team_tool in team_tools(self.engine):
+                registry.register(team_tool)
 
     def router(self) -> APIRouter:
         def get_engine() -> FlowEngineImpl:

@@ -86,7 +86,7 @@ def test_engine_api_end_to_end(api: tuple[TestClient, FakesModule], git_repo: Pa
     assert repo["commands"]["test"] == "pytest -q"
 
     modes = client.get("/api/engine/modes").json()
-    assert [m["label"] for m in modes] == ["Tek", "İkili", "Yarış", "Hat", "Kurul", "Özel"]
+    assert [m["label"] for m in modes] == ["Tek", "İkili", "Yarış", "Hat", "Kurul", "Ekip", "Özel"]
     duo = client.get(f"/api/engine/modes/duo?workspace_id={ws['id']}").json()
     assert [nd["id"] for nd in duo["nodes"]] == ["dev", "boundary", "build", "review", "final"]
     assert client.get("/api/engine/modes/duo").status_code == 422

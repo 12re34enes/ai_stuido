@@ -36,7 +36,7 @@ class ToolRegistryImpl:
         selected = [
             t
             for n, t in self._tools.items()
-            if (names is None or n in names) and (allow_mutating or not t.spec.mutating)
+            if (n in names if names is not None else not t.spec.opt_in) and (allow_mutating or not t.spec.mutating)
         ]
         return BoundToolHost(ctx, {t.spec.name: t for t in selected}, self._events)
 

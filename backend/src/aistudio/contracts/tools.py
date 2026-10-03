@@ -25,6 +25,9 @@ class ToolSpec(BaseModel):
     input_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
     # Tools that change the outside world. Read-only agents (advisors) never get these.
     mutating: bool = False
+    # Bound only when listed explicitly in ``ToolRegistry.bind(names=...)``; ``names=None`` (all
+    # tools) skips it. Used for context-specific tools such as the team tools (spec §25).
+    opt_in: bool = False
 
 
 class ToolContext(BaseModel):
@@ -62,5 +65,5 @@ class ToolRegistry(Protocol):
     def get(self, name: str) -> StudioTool: ...
     def all_specs(self) -> list[ToolSpec]: ...
     def bind(self, ctx: ToolContext, names: list[str] | None = None, *, allow_mutating: bool = True) -> ToolHost:
-        """``names`` None = every registered tool."""
+        """``names`` None = every registered tool except ``opt_in`` ones."""
         ...

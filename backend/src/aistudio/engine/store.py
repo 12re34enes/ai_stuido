@@ -34,7 +34,10 @@ from aistudio.engine.tables import (
     engine_node_runs,
     engine_runs,
     engine_schedules,
+    engine_task_teams,
     engine_tasks,
+    engine_team_assignments,
+    engine_team_runs,
 )
 from aistudio.storage.db import Database
 
@@ -100,10 +103,17 @@ class EngineStore:
                 .all()
             )
             if run_ids:
-                for table in (engine_node_runs, engine_gate_results, engine_checkpoints):
+                for table in (
+                    engine_node_runs,
+                    engine_gate_results,
+                    engine_checkpoints,
+                    engine_team_runs,
+                    engine_team_assignments,
+                ):
                     await conn.execute(table.delete().where(table.c.run_id.in_(run_ids)))
                 await conn.execute(engine_runs.delete().where(engine_runs.c.id.in_(run_ids)))
             await conn.execute(engine_evidence.delete().where(engine_evidence.c.task_id == task_id))
+            await conn.execute(engine_task_teams.delete().where(engine_task_teams.c.task_id == task_id))
             await conn.execute(engine_tasks.delete().where(engine_tasks.c.id == task_id))
 
     async def list_task_rows(

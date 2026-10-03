@@ -52,6 +52,17 @@ class FakeSession:
     results: list[TurnResult] = field(default_factory=list)
     interrupted: bool = False
     closed: int = 0
+    tools: Any = None  # ToolHost bound like the real manager does (when a registry is attached)
+    bound_registry: Any = None
+
+    @property
+    def tool_names(self) -> list[str]:
+        return [s.name for s in self.tools.specs()] if self.tools is not None else []
+
+    async def call(self, name: str, args: dict[str, Any] | None = None) -> Any:
+        """Call a bound Studio tool from inside a responder (what the CLI does)."""
+        assert self.tools is not None, "no tool registry attached to the fake agent manager"
+        return await self.tools.call(name, args or {})
 
     @property
     def id(self) -> str:
@@ -126,6 +137,7 @@ class FakeHandle:
 
     async def steer(self, text: str) -> None:
         self._s.messages.append(f"[steer] {text}")
+        self._mgr.steers.append((self._s.id, text))
 
     async def interrupt(self) -> None:
         self._s.interrupted = True
@@ -169,6 +181,30 @@ class FakeAgentManager:
         self.concurrent = 0
         self.max_concurrent = 0
         self.handle_calls: list[str] = []
+        self.tool_registry: Any = None  # ToolRegistry: when set, sessions get a bound ToolHost
+        self.steers: list[tuple[str, str]] = []
+
+    def _bind(self, session: FakeSession) -> None:
+        registry = self.tool_registry
+        if registry is None or session.bound_registry is registry:
+            return
+        from aistudio.contracts.tools import ToolContext
+
+        req = session.req
+        session.tools = registry.bind(
+            ToolContext(
+                workspace_id=req.workspace_id,
+                session_id=session.id,
+                provider=req.spec.provider,
+                task_id=req.task_id,
+                run_id=req.run_id,
+                node_id=req.node_id,
+                agent_label=req.label,
+            ),
+            req.tool_names,
+            allow_mutating=req.spec.role != "advisor",
+        )
+        session.bound_registry = registry
 
     def on(
         self,
@@ -226,6 +262,7 @@ class FakeAgentManager:
             updated_at=now,
         )
         session = FakeSession(record=record, req=req)
+        self._bind(session)
         self.sessions[record.id] = session
         handle = FakeHandle(self, session)
         self.handles[record.id] = handle
@@ -237,6 +274,7 @@ class FakeAgentManager:
         self.handle_calls.append(session_id)
         if session_id not in self.handles:
             raise NotFound("Oturum bulunamadı.")
+        self._bind(self.sessions[session_id])  # a resumed session is re-bound to the current registry
         return self.handles[session_id]
 
     async def get(self, session_id: str) -> SessionRecord:
@@ -288,6 +326,7 @@ class FakeWorktreeManager:
         self.committed: dict[str, set[str]] = {}
         self.commits: list[tuple[str, str]] = []
         self.conflicts: dict[str, list[str]] = {}
+        self.label_conflicts: dict[str, list[str]] = {}  # worktree label -> conflicting paths on merge
         self.merges: list[dict[str, Any]] = []
         self.pushes: list[dict[str, Any]] = []
         self.removed: list[str] = []
@@ -392,8 +431,9 @@ class FakeWorktreeManager:
         strategy: Literal["merge", "squash", "cherry_pick"] = "merge",
         message: str | None = None,
     ) -> MergeResult:
-        if self.conflicts.get(worktree_id):
-            return MergeResult(merged=False, conflicts=self.conflicts[worktree_id], message="conflict")
+        conflicts = self.conflicts.get(worktree_id) or self.label_conflicts.get(self.worktrees[worktree_id].label or "")
+        if conflicts:
+            return MergeResult(merged=False, conflicts=list(conflicts), message="conflict")
         self.merges.append({"worktree_id": worktree_id, "target_ref": target_ref, "strategy": strategy})
         self.worktrees[worktree_id] = self.worktrees[worktree_id].model_copy(update={"status": "merged"})
         return MergeResult(merged=True, commit_sha=f"m{len(self.merges):04d}")

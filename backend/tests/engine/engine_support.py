@@ -174,6 +174,7 @@ async def build_env(
     services.register(ApprovalService, approvals)  # type: ignore[type-abstract]
     services.register(WorkspaceService, workspaces)  # type: ignore[type-abstract]
     services.register(ToolRegistry, tools)  # type: ignore[type-abstract]
+    agents.tool_registry = tools  # fake sessions get a bound ToolHost, like the real manager
     if register:
         services.register(AgentManager, agents)  # type: ignore[type-abstract]
         services.register(WorktreeManager, worktrees)  # type: ignore[type-abstract]
