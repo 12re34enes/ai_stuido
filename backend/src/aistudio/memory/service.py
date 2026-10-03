@@ -305,6 +305,11 @@ class MemoryServiceImpl:
         text = await self._read(repo, "boundaries.md") or ""
         return await self._check_boundaries(workspace_id, text)
 
+    async def boundary_warnings(self, workspace_id: str) -> list[str]:
+        repo = await self._repo(workspace_id)
+        text = await self._read(repo, "boundaries.md") or ""
+        return parse_boundaries(text)[1]
+
     async def _check_boundaries(self, workspace_id: str, text: str) -> Boundaries:
         parsed, warnings = parse_boundaries(text)
         digest = hashlib.sha256(text.encode()).hexdigest()

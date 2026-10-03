@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Literal
 
 from fastapi import APIRouter, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from aistudio.contracts.agents import AgentRole, Boundaries
 from aistudio.contracts.memory import MemoryDoc
@@ -97,9 +97,10 @@ def build_router(get_svc: Callable[[], MemoryServiceImpl]) -> APIRouter:
             raise NotFound("Hafıza önerisi bulunamadı.")
         return rec
 
-    @r.get("/boundaries", response_model=Boundaries)
-    async def boundaries(workspace_id: str) -> Boundaries:
-        return await get_svc().boundaries(workspace_id)
+    @r.get("/boundaries", response_model=BoundariesView)
+    async def boundaries(workspace_id: str) -> BoundariesView:
+        parsed = await get_svc().boundaries(workspace_id)
+        return BoundariesView(**parsed.model_dump(), warnings=await get_svc().boundary_warnings(workspace_id))
 
     @r.get("/context", response_model=ContextResult)
     async def context(workspace_id: str, role: AgentRole = "writer") -> ContextResult:
@@ -107,3 +108,9 @@ def build_router(get_svc: Callable[[], MemoryServiceImpl]) -> APIRouter:
         return ContextResult(role=role, text=text, chars=len(text))
 
     return r
+
+
+class BoundariesView(Boundaries):
+    """Parsed boundaries plus the parser's warnings (parts of boundaries.md that were ignored)."""
+
+    warnings: list[str] = Field(default_factory=list)

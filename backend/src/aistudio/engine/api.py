@@ -34,7 +34,7 @@ from aistudio.engine.models import (
     ValidationReport,
 )
 from aistudio.engine.modes import MODE_INFO
-from aistudio.engine.service import FlowEngineImpl
+from aistudio.engine.service import FlowEngineImpl, TaskDocument
 
 ExportFmt = Literal["md", "html", "json"]
 _EXT = {"md": "md", "html": "html", "json": "json"}
@@ -51,13 +51,27 @@ def build_router(get_engine: Callable[[], FlowEngineImpl]) -> APIRouter:
         mode: str | None = None,
         source: str | None = None,
         q: str | None = None,
+        studio_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[Task]:
         statuses = [s for s in status.split(",") if s] if status else None
         return await get_engine().list_tasks(
-            workspace_id=workspace_id, statuses=statuses, mode=mode, source=source, query=q, limit=limit, offset=offset
+            workspace_id=workspace_id,
+            statuses=statuses,
+            mode=mode,
+            source=source,
+            query=q,
+            studio_id=studio_id,
+            limit=limit,
+            offset=offset,
         )
+
+    @r.get("/tasks/{task_id}/document", response_model=TaskDocument)
+    async def task_document(task_id: str) -> TaskDocument:
+        """Final document of a finished task: the studio's output_template rendered server-side
+        (same sandbox as prompts), falling back to the last node output."""
+        return await get_engine().task_document(task_id)
 
     @r.post("/tasks", response_model=TaskDetail, status_code=201)
     async def create_task(body: TaskCreateBody) -> TaskDetail:

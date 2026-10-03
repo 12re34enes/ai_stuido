@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from aistudio.approvals.service import ApprovalServiceImpl
-from aistudio.contracts.approvals import Approval, ApprovalService, ApprovalStatus
+from aistudio.contracts.approvals import Approval, ApprovalKind, ApprovalService, ApprovalStatus
 from aistudio.core.context import AppContext
 from aistudio.core.module import Module
 
@@ -37,9 +37,16 @@ class ApprovalsModule(Module):
 
         @r.get("", response_model=list[Approval])
         async def list_approvals(
-            status: ApprovalStatus | None = ApprovalStatus.pending, workspace_id: str | None = None, limit: int = 200
+            status: ApprovalStatus | None = ApprovalStatus.pending,
+            workspace_id: str | None = None,
+            limit: int = 200,
+            task_id: str | None = None,
+            run_id: str | None = None,
+            kind: ApprovalKind | None = None,
         ) -> list[Approval]:
-            return await svc().list(status=status, workspace_id=workspace_id, limit=limit)
+            return await svc().list(
+                status=status, workspace_id=workspace_id, limit=limit, task_id=task_id, run_id=run_id, kind=kind
+            )
 
         @r.get("/{approval_id}", response_model=Approval)
         async def get_approval(approval_id: str) -> Approval:

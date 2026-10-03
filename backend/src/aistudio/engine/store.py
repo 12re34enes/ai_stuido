@@ -117,9 +117,12 @@ class EngineStore:
         limit: int = 100,
         offset: int = 0,
         order: str = "recent",
+        studio_id: str | None = None,
     ) -> list[Row]:
         t = engine_tasks
         stmt = sa.select(t)
+        if studio_id is not None:
+            stmt = stmt.where(t.c.studio_id == studio_id)
         if workspace_id is not None:
             stmt = stmt.where(t.c.workspace_id == workspace_id)
         if statuses:

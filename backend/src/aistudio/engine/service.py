@@ -6,7 +6,9 @@ import asyncio
 import contextlib
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel
 
 from aistudio.contracts.agents import AgentProfile
 from aistudio.contracts.approvals import ApprovalStatus
@@ -55,6 +57,8 @@ from aistudio.engine.nodes.base import NodeContext
 from aistudio.engine.runtime import EngineRuntime
 from aistudio.engine.scheduler import Scheduler, next_fire, validate_cron
 from aistudio.engine.store import EngineStore, Row, task_from_row
+from aistudio.engine.templates import TemplateFailed
+from aistudio.engine.templates import render as render_template
 from aistudio.engine.validation import validate_graph
 
 log = logging.getLogger(__name__)
@@ -489,6 +493,44 @@ class FlowEngineImpl:
     async def get_run(self, run_id: str) -> Run:
         return self._with_states(await self.store.get_run(run_id))
 
+    async def task_document(self, task_id: str) -> TaskDocument:
+        task = await self.store.get_task(task_id)
+        run = await self.store.get_run(task.current_run_id) if task.current_run_id else None
+        latest: dict[str, NodeRun] = {}
+        if run is not None:
+            for nr in run.nodes:
+                cur = latest.get(nr.node_id)
+                if cur is None or nr.attempt >= cur.attempt:
+                    latest[nr.node_id] = nr
+        labels = {n.id: n.label for n in run.graph.nodes} if run is not None else {}
+        nodes = {
+            nid: {"output": nr.output or "", "data": nr.data or {}, "status": nr.status, "label": labels.get(nid, nid)}
+            for nid, nr in latest.items()
+        }
+        last_output = ""
+        if run is not None:
+            finished = [nr for nr in latest.values() if nr.output and nr.status == "passed"]
+            finished.sort(key=lambda nr: nr.finished_at or nr.started_at or datetime.min.replace(tzinfo=UTC))
+            last_output = finished[-1].output or "" if finished else ""
+        template: str | None = None
+        studios = self.rt.studios()
+        if task.studio_id and studios is not None:
+            version = (task.source_ref or {}).get("version")
+            with contextlib.suppress(Exception):
+                studio = await studios.get(task.studio_id, int(version) if version else None)
+                template = studio.output_template
+        if template:
+            variables = {
+                "input": {**task.inputs, "prompt": task.prompt},
+                "nodes": nodes,
+                "task": {"id": task.id, "title": task.title},
+            }
+            try:
+                return TaskDocument(task_id=task.id, markdown=render_template(template, variables), source="template")
+            except TemplateFailed as e:
+                return TaskDocument(task_id=task.id, markdown=last_output, source="last_output", warning=e.message)
+        return TaskDocument(task_id=task.id, markdown=last_output, source="last_output")
+
     def _with_states(self, run: Run) -> Run:
         ex = self.executors.get(run.id)
         states = dict(ex.state.status) if ex is not None else latest_node_states(run.nodes)
@@ -524,6 +566,7 @@ class FlowEngineImpl:
         query: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        studio_id: str | None = None,
     ) -> list[Task]:
         rows = await self.store.list_task_rows(
             workspace_id=workspace_id,
@@ -531,6 +574,7 @@ class FlowEngineImpl:
             mode=mode,
             source=source,
             query=query,
+            studio_id=studio_id,
             limit=max(1, min(limit, 500)),
             offset=max(0, offset),
         )
@@ -799,3 +843,10 @@ def latest_node_states(nodes: list[NodeRun]) -> dict[str, NodeStatus]:
         if cur is None or order(nr) >= order(cur):
             best[nr.node_id] = nr
     return {nid: nr.status for nid, nr in best.items()}
+
+
+class TaskDocument(BaseModel):
+    task_id: str
+    markdown: str
+    source: Literal["template", "last_output"]
+    warning: str | None = None

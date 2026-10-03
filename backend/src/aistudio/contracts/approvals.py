@@ -100,4 +100,7 @@ class ApprovalService(Protocol):
         status: ApprovalStatus | None = ApprovalStatus.pending,
         workspace_id: str | None = None,
         limit: int = 200,
+        task_id: str | None = None,
+        run_id: str | None = None,
+        kind: ApprovalKind | None = None,
     ) -> list[Approval]: ...

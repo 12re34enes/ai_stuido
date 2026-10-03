@@ -13,7 +13,7 @@ from typing import Any
 
 import sqlalchemy as sa
 
-from aistudio.contracts.approvals import Approval, ApprovalRequest, ApprovalStatus
+from aistudio.contracts.approvals import Approval, ApprovalKind, ApprovalRequest, ApprovalStatus
 from aistudio.core.clock import utcnow
 from aistudio.core.errors import Conflict, NotFound, PermissionDenied
 from aistudio.core.eventlog import EventLog
@@ -76,12 +76,21 @@ class ApprovalServiceImpl:
         status: ApprovalStatus | None = ApprovalStatus.pending,
         workspace_id: str | None = None,
         limit: int = 200,
+        task_id: str | None = None,
+        run_id: str | None = None,
+        kind: ApprovalKind | None = None,
     ) -> list[Approval]:
         stmt = sa.select(approvals_t).order_by(approvals_t.c.created_at.desc()).limit(limit)
         if status is not None:
             stmt = stmt.where(approvals_t.c.status == status.value)
         if workspace_id is not None:
             stmt = stmt.where(approvals_t.c.workspace_id == workspace_id)
+        if task_id is not None:
+            stmt = stmt.where(approvals_t.c.task_id == task_id)
+        if run_id is not None:
+            stmt = stmt.where(approvals_t.c.run_id == run_id)
+        if kind is not None:
+            stmt = stmt.where(approvals_t.c.kind == kind.value)
         async with self._db.connect() as conn:
             rows = (await conn.execute(stmt)).mappings().all()
         return [Approval(**r) for r in rows]

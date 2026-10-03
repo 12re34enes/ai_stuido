@@ -168,3 +168,20 @@ def test_validator_value_error_returns_422(app_ctx: AppCtx) -> None:
     err = r.json()["error"]
     assert err["code"] == "validation_failed"
     assert "saat 0-23" in str(err["details"])
+
+
+def test_approvals_filter_by_task_run_and_kind(app_ctx: AppCtx) -> None:
+    client, ctx, _ = app_ctx
+    svc = ctx.services.get(ApprovalService)  # type: ignore[type-abstract]
+
+    async def make() -> None:
+        await svc.request(ApprovalRequest(kind=ApprovalKind.plan, title="a", task_id="t1", run_id="r1"))
+        await svc.request(ApprovalRequest(kind=ApprovalKind.final, title="b", task_id="t1", run_id="r2"))
+        await svc.request(ApprovalRequest(kind=ApprovalKind.plan, title="c", task_id="t2"))
+
+    client.portal.call(make)  # type: ignore[union-attr]
+    titles = lambda **q: sorted(a["title"] for a in client.get("/api/approvals", params=q).json())  # noqa: E731
+    assert titles(task_id="t1") == ["a", "b"]
+    assert titles(run_id="r2") == ["b"]
+    assert titles(kind="plan") == ["a", "c"]
+    assert titles(task_id="t1", kind="plan") == ["a"]
