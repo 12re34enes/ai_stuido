@@ -435,6 +435,21 @@ test("studio page lists results and opens the reader; export downloads Markdown"
   await expect(page.getByText("Görev henüz tamamlanmadı")).toBeVisible();
 });
 
+test("reader prefers the document studiod rendered", async ({ page }) => {
+  await installStudioMocks(page);
+  await page.route("**/api/engine/tasks/task_801/document", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ task_id: "task_801", markdown: "# Sunucu belgesi\n\n## Sunucuda işlenen bölüm\n\nGövde.\n", source: "template" }),
+    }),
+  );
+  await openStudios(page, "/studios/architecture/outputs/task_801");
+  await expect(page.getByRole("heading", { level: 1, name: "Sunucu belgesi" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sunucuda işlenen bölüm" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Karar kriterleri" })).toHaveCount(0);
+});
+
 test("editor: live validation, save as a new version, version diff and restore", async ({ page }) => {
   const { state } = await installStudioMocks(page);
   await openStudios(page, "/studios/guvenlik-denetimi/edit");

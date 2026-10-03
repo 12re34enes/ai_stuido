@@ -47,6 +47,22 @@ describe("matchesShortcut", () => {
     expect(matchesShortcut(key({ key: "s", code: "KeyS", metaKey: true, ctrlKey: true }), "⌃⌘S", true)).toBe(true);
     expect(matchesShortcut(key({ key: "s", code: "KeyS", metaKey: true }), "⌃⌘S", true)).toBe(false);
   });
+
+  it("keeps ⌃⌘S apart from Ctrl+S off mac", () => {
+    expect(matchesShortcut(key({ key: "s", code: "KeyS", ctrlKey: true }), "⌃⌘S", false)).toBe(false);
+    expect(matchesShortcut(key({ key: "s", code: "KeyS", ctrlKey: true, metaKey: true }), "⌃⌘S", false)).toBe(true);
+    expect(matchesShortcut(key({ key: "s", code: "KeyS", ctrlKey: true }), "⌘S", false)).toBe(true);
+  });
+
+  it("matches ⌃-only shortcuts off mac", () => {
+    expect(matchesShortcut(key({ key: "`", code: "Backquote", ctrlKey: true }), "⌃`", false)).toBe(true);
+    expect(matchesShortcut(key({ key: "`", code: "Backquote", ctrlKey: true, metaKey: true }), "⌃`", false)).toBe(false);
+  });
+
+  it("rejects a held Ctrl for plain keys", () => {
+    expect(matchesShortcut(key({ key: "j", code: "KeyJ", ctrlKey: true }), "J", false)).toBe(false);
+    expect(matchesShortcut(key({ key: "j", code: "KeyJ" }), "J", false)).toBe(true);
+  });
 });
 
 describe("isTypingTarget", () => {

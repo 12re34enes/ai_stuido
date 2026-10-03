@@ -9,10 +9,10 @@ import { useReducedMotionPref } from "@/motion/hooks";
 import { spring, stagger, variants } from "@/motion/tokens";
 import { Button, cn, CopyButton, EmptyState, MarkdownView, Skeleton, SkeletonText, toast, Tooltip } from "@/ui";
 
-import { useRunEvidence, useStudio, useTaskDetail } from "../api";
+import { useRunEvidence, useStudio, useTaskDetail, useTaskDocument } from "../api";
 import { BackLink, LoadError } from "../components/Page";
 import { StudioIcon } from "../components/StudioIcon";
-import { buildStudioDocument, documentHeadings, exportFileName, readingStats, splitDocument, type Heading } from "../document";
+import { buildStudioDocument, documentHeadings, exportFileName, fromServerDocument, readingStats, splitDocument, type Heading } from "../document";
 import { studioStrings as s } from "../strings";
 
 /** Reader typography: serif headings, comfortable measure and rhythm (overrides MarkdownView's UI density). */
@@ -98,14 +98,20 @@ export function OutputPage({ studioId, taskId }: { studioId: string; taskId: str
   const studio = useStudio(studioId, refVersion);
   const latest = useStudio(studioId);
   const template = studio.data?.output_template ?? latest.data?.output_template;
-  const needsEvidence = !!template?.includes("gate.");
+  // studiod renders the document with the real (sandboxed) Jinja; the client subset only steps in
+  // when that endpoint is unavailable (older studiod, transient error).
+  const server = useTaskDocument(taskId);
+  const clientRender = server.isError && !server.data;
+  const needsEvidence = clientRender && !!template?.includes("gate.");
   const evidence = useRunEvidence(needsEvidence ? (detail.data?.current_run?.id ?? undefined) : undefined);
   const { workspace } = useCurrentWorkspace();
 
   const doc = useMemo(() => {
     if (!detail.data) return null;
+    if (server.data) return fromServerDocument(server.data);
+    if (!clientRender) return null;
     return buildStudioDocument(studio.data ?? latest.data, detail.data, { workspaceName: workspace?.name, evidence: evidence.data });
-  }, [detail.data, evidence.data, latest.data, studio.data, workspace?.name]);
+  }, [clientRender, detail.data, evidence.data, latest.data, server.data, studio.data, workspace?.name]);
   const parts = useMemo(() => splitDocument(doc?.markdown ?? ""), [doc?.markdown]);
   const headings = useMemo(() => documentHeadings(parts.body).filter((h) => h.level <= 3), [parts.body]);
   const stats = useMemo(() => readingStats(doc?.markdown ?? ""), [doc?.markdown]);

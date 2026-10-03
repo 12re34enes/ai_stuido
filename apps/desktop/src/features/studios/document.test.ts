@@ -1,4 +1,4 @@
-import { buildStudioDocument, documentHeadings, exportFileName, latestNodeRuns, readingStats, splitDocument } from "./document";
+import { buildStudioDocument, documentHeadings, exportFileName, fromServerDocument, latestNodeRuns, readingStats, splitDocument } from "./document";
 import type { FlowGraph, NodeRun, TaskDetail } from "./types";
 
 const graph: FlowGraph = {
@@ -108,5 +108,26 @@ describe("reader helpers", () => {
   it("builds a Turkish-safe export file name", () => {
     expect(exportFileName("Mimari tasarım: Kuyruk mu, doğrudan çağrı mı?")).toBe("mimari-tasarim-kuyruk-mu-dogrudan-cagri-mi.md");
     expect(exportFileName("???")).toBe("studyo-ciktisi.md");
+  });
+});
+
+describe("fromServerDocument", () => {
+  it("keeps a rendered template and tidies it", () => {
+    expect(fromServerDocument({ task_id: "t", markdown: "# Karar\n\n\n\nMetin  \n", source: "template" })).toEqual({
+      markdown: "# Karar\n\nMetin\n",
+      source: "template",
+    });
+  });
+
+  it("maps the last-output fallback and carries the template warning", () => {
+    expect(fromServerDocument({ task_id: "t", markdown: "Çıktı", source: "last_output", warning: "Şablon hatası" })).toEqual({
+      markdown: "Çıktı\n",
+      source: "fallback",
+      error: "Şablon hatası",
+    });
+  });
+
+  it("treats a blank document as empty", () => {
+    expect(fromServerDocument({ task_id: "t", markdown: "  \n", source: "last_output", warning: null })).toEqual({ markdown: "", source: "empty" });
   });
 });

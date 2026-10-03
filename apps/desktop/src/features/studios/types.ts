@@ -208,6 +208,14 @@ export interface Evidence {
   content?: string;
 }
 
+/** `GET /engine/tasks/{id}/document`: the studio output template rendered by studiod. */
+export interface TaskDocument {
+  task_id: string;
+  markdown: string;
+  source: "template" | "last_output";
+  warning?: string | null;
+}
+
 // ----------------------------------------------------------------------------- pickers
 
 export interface Repo {

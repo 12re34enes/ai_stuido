@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -520,15 +521,31 @@ class FlowEngineImpl:
                 studio = await studios.get(task.studio_id, int(version) if version else None)
                 template = studio.output_template
         if template:
+            # Same variables the reader's client-side renderer offers (studios/document.ts).
+            gate: dict[str, dict[str, str]] = {}
+            if run is not None and "gate." in template:
+                for ev in await self.store.evidence(run_id=run.id):
+                    if ev.source != "gate" or not ev.node_id:
+                        continue
+                    block = f"**{ev.title}**" + (f"\n\n```\n{ev.content}\n```" if ev.content else "")
+                    prev = gate.get(ev.node_id, {}).get("evidence")
+                    gate[ev.node_id] = {"evidence": f"{prev}\n\n{block}" if prev else block}
+            workspace_name = ""
+            with contextlib.suppress(Exception):
+                workspace_name = (await self.rt.workspaces().get(task.workspace_id)).name
             variables = {
                 "input": {**task.inputs, "prompt": task.prompt},
                 "nodes": nodes,
+                "gate": gate,
                 "task": {"id": task.id, "title": task.title},
+                "workspace": {"name": workspace_name},
             }
             try:
-                return TaskDocument(task_id=task.id, markdown=render_template(template, variables), source="template")
+                markdown = _tidy_markdown(render_template(template, variables))
             except TemplateFailed as e:
                 return TaskDocument(task_id=task.id, markdown=last_output, source="last_output", warning=e.message)
+            if re.sub(r"[-#*\s]", "", markdown):  # a template whose sections all came out empty
+                return TaskDocument(task_id=task.id, markdown=markdown, source="template")
         return TaskDocument(task_id=task.id, markdown=last_output, source="last_output")
 
     def _with_states(self, run: Run) -> Run:
@@ -850,3 +867,9 @@ class TaskDocument(BaseModel):
     markdown: str
     source: Literal["template", "last_output"]
     warning: str | None = None
+
+
+def _tidy_markdown(text: str) -> str:
+    """Collapse the blank-line runs a template leaves around empty sections."""
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"

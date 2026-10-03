@@ -62,3 +62,59 @@ async def test_broken_template_falls_back_with_warning(env: EngineEnv) -> None:
     task_id = await _finish(env, studio_id="bad")
     doc = await env.engine.task_document(task_id)
     assert doc.source == "last_output" and doc.warning and "Şablon" in doc.warning
+
+
+async def test_template_sees_gate_evidence_and_workspace(env: EngineEnv) -> None:
+    from aistudio.core.clock import utcnow
+    from aistudio.core.ids import new_id
+    from aistudio.engine.models import Evidence
+
+    graph = await env.engine.graph_for_mode(FlowMode.single, workspace_id=env.workspace.id)
+    studio = Studio(
+        id="ev",
+        name="Kanıtlı",
+        description="Kapı kanıtı içerir",
+        graph=graph,
+        output_template="# {{ workspace.name }}\n\n{% if nodes.nope %}\n\n\n{% endif %}{{ gate.tests.evidence }}",
+    )
+    env.studios.graphs["ev"] = graph
+
+    async def get(studio_id: str, version: int | None = None) -> Studio:
+        return studio
+
+    env.studios.get = get  # type: ignore[method-assign]
+    task_id = await _finish(env, studio_id="ev")
+    task = await env.engine.get_task(task_id)
+    assert task.current_run_id
+    await env.engine.store.insert_evidence(
+        Evidence(
+            id=new_id("ev"),
+            task_id=task_id,
+            run_id=task.current_run_id,
+            node_id="tests",
+            source="gate",
+            kind="command",
+            title="pytest",
+            content="3 passed",
+            created_at=utcnow(),
+        )
+    )
+    doc = await env.engine.task_document(task_id)
+    assert doc.source == "template", doc
+    assert doc.markdown == "# Deneme Alanı\n\n**pytest**\n\n```\n3 passed\n```\n"
+
+
+async def test_empty_rendered_template_falls_back(env: EngineEnv) -> None:
+    graph = await env.engine.graph_for_mode(FlowMode.single, workspace_id=env.workspace.id)
+    studio = Studio(
+        id="hollow", name="Boş", description="x", graph=graph, output_template="## \n\n{{ nodes.nope.output }}\n---"
+    )
+    env.studios.graphs["hollow"] = graph
+
+    async def get(studio_id: str, version: int | None = None) -> Studio:
+        return studio
+
+    env.studios.get = get  # type: ignore[method-assign]
+    task_id = await _finish(env, studio_id="hollow")
+    doc = await env.engine.task_document(task_id)
+    assert doc.source == "last_output" and "README güncellendi" in doc.markdown

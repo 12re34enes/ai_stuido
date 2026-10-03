@@ -4,7 +4,7 @@
  */
 import { finalOutputNodeIds, slugify } from "./model";
 import { renderTemplate, TemplateError } from "./template";
-import type { Evidence, FlowGraph, NodeRun, Studio, TaskDetail } from "./types";
+import type { Evidence, FlowGraph, NodeRun, Studio, TaskDetail, TaskDocument } from "./types";
 import { parseYaml } from "./yaml";
 
 export interface StudioDocument {
@@ -90,6 +90,13 @@ export function buildStudioDocument(
   }
   const text = fallback(graph, detail);
   return text ? { markdown: tidyMarkdown(text), source: "fallback" } : { markdown: "", source: "empty" };
+}
+
+/** Map studiod's rendered document onto the reader's shape (its warning becomes the banner). */
+export function fromServerDocument(doc: TaskDocument): StudioDocument {
+  const markdown = doc.markdown.trim() ? tidyMarkdown(doc.markdown) : "";
+  if (!markdown) return { markdown: "", source: "empty", ...(doc.warning ? { error: doc.warning } : {}) };
+  return { markdown, source: doc.source === "template" ? "template" : "fallback", ...(doc.warning ? { error: doc.warning } : {}) };
 }
 
 export interface DocumentParts {

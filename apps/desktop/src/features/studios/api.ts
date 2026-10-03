@@ -23,6 +23,7 @@ import type {
   Task,
   TaskCreateBody,
   TaskDetail,
+  TaskDocument,
 } from "./types";
 
 export const studioKeys = {
@@ -148,6 +149,20 @@ export function useTaskDetail(taskId: string | undefined) {
     placeholderData: keepPreviousData,
     // Live events refresh it; a slow poll covers a dropped stream while the task still runs.
     refetchInterval: (q) => (q.state.data && ACTIVE.has(q.state.data.task.status) ? 15_000 : false),
+  });
+}
+
+/**
+ * The server-rendered final document. Its key sits under the task's, so live task invalidation
+ * refreshes it too. Errors are not retried: the reader falls back to rendering in the client.
+ */
+export function useTaskDocument(taskId: string | undefined) {
+  return useQuery({
+    queryKey: [...studioKeys.task(taskId ?? ""), "document"] as const,
+    queryFn: () => api.get<TaskDocument>(`/engine/tasks/${enc(taskId!)}/document`),
+    enabled: !!taskId,
+    retry: false,
+    placeholderData: keepPreviousData,
   });
 }
 

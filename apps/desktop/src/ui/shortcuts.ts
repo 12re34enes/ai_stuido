@@ -87,11 +87,20 @@ export function matchesShortcut(event: KeyboardEvent, shortcut: string | ParsedS
     (s.key.length === 1 && /[0-9]/.test(s.key) && code === `digit${s.key}`) ||
     (s.key.length === 1 && /[a-z]/.test(s.key) && code === `key${s.key}`);
   if (!keyOk) return false;
-  const wantMeta = s.meta;
-  const metaOk = mac ? event.metaKey === wantMeta : (event.metaKey || event.ctrlKey) === wantMeta;
-  const ctrlOk = mac ? event.ctrlKey === s.ctrl : s.ctrl ? event.ctrlKey : true;
   const shiftOk = s.key.length === 1 && !/[a-z0-9]/.test(s.key) ? true : event.shiftKey === s.shift;
-  return metaOk && ctrlOk && event.altKey === s.alt && shiftOk;
+  return modifiersOk(event, s, mac) && event.altKey === s.alt && shiftOk;
+}
+
+/**
+ * ⌘/⌃ matching. On mac both are exact. Elsewhere ⌘ means Ctrl, so "⌘S" accepts Ctrl+S (or the
+ * Super key), "⌃S" wants Ctrl without Super, and "⌃⌘S" needs both — it must not fire on Ctrl+S.
+ */
+function modifiersOk(event: KeyboardEvent, s: ParsedShortcut, mac: boolean): boolean {
+  if (mac) return event.metaKey === s.meta && event.ctrlKey === s.ctrl;
+  if (s.meta && s.ctrl) return event.ctrlKey && event.metaKey;
+  if (s.meta) return event.ctrlKey || event.metaKey;
+  if (s.ctrl) return event.ctrlKey && !event.metaKey;
+  return !event.ctrlKey && !event.metaKey;
 }
 
 /** Split a shortcut into display keys for <Kbd>: "⌘⇧K" → ["⌘", "⇧", "K"]. */
