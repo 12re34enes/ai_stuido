@@ -149,6 +149,9 @@ class GitNodeConfig(BaseModel):
     body_template: str | None = None
     watch: bool = True  # PR takibi: autofix CI failures and review comments
     autofix: bool = True
+    # action=push: target branch template; None = the worktree's own branch. PR-fix tasks use
+    # "{{ input.push_branch }}" to push onto the existing PR branch.
+    push_branch_template: str | None = None
 
 
 class DeployNodeConfig(BaseModel):
