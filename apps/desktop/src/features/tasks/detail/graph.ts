@@ -258,6 +258,7 @@ export function flowStatus(status: NodeStatus | undefined): FlowNodeStatus {
 export function cardKind(kind: NodeKind): FlowNodeKind {
   switch (kind) {
     case "agent":
+    case "team":
       return "agent";
     case "advisor":
     case "synthesis":

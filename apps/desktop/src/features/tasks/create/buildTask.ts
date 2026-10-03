@@ -98,6 +98,10 @@ export function buildTaskBody(d: ComposerDraft, ctx: BuildContext): BuildResult 
     errors.prompt = s.errors.prompt;
   }
 
+  // Ekip mode needs a team (a studio or a saved flow overrides the mode, as for the other modes).
+  const teamMode = d.mode === "team" && !studio && !d.flowId;
+  if (teamMode && !d.teamId && !d.teamSpec) errors.team = s.errors.team;
+
   const budget = buildBudget(d.budget, errors);
 
   let scheduledAt: string | null = null;
@@ -131,6 +135,13 @@ export function buildTaskBody(d: ComposerDraft, ctx: BuildContext): BuildResult 
     start: true,
     start_on_reset: d.schedule === "reset",
   };
+  if (teamMode) {
+    body.team_id = d.teamId;
+    if (d.teamSpec) body.team = d.teamSpec;
+  } else if (d.mode === "team") {
+    // Overridden by a studio / saved flow: the engine runs that graph; keep the body mode valid.
+    body.mode = "custom";
+  }
   return { ok: true, body };
 }
 

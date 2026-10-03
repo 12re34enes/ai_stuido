@@ -2,15 +2,21 @@
  * Inspector forms for every NodeConfig kind and field (contracts/flows.py). Each form edits the
  * config through `update(patch)`; the store coalesces typing into single undo steps.
  */
-import { Lock, Wrench } from "lucide-react";
+import { Lock, PencilRuler, Users, Wrench } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useId, useMemo, useState, type ReactNode } from "react";
+import { Link } from "react-router";
 
 import { isMissingEndpoint } from "@/lib/connection";
 import { spring, transition } from "@/motion/tokens";
-import { Badge, Checkbox, EnvBadge, Input, SegmentedControl, Select, Skeleton, Switch, Textarea, type SelectOption } from "@/ui";
+import { Badge, Button, Checkbox, EnvBadge, Input, SegmentedControl, Select, Skeleton, Switch, Textarea, type SelectOption } from "@/ui";
 import { uiStrings } from "@/ui/strings";
 
+import { useTeams } from "../../../teams/api";
+import { TeamBuilderSheet } from "../../../teams/builder/TeamBuilderSheet";
+import { MiniOrgChart } from "../../../teams/chart/MiniOrgChart";
+import { defaultTeamSpec, summaryText as teamSummaryText } from "../../../teams/model/spec";
+import { s as teamStrings } from "../../../teams/strings";
 import { useDeployProfiles, useTools } from "../../api";
 import { errorText } from "../../util";
 import { defaultBoundaries } from "../../model/kinds";
@@ -48,6 +54,7 @@ import {
   type SandboxLevel,
   type SynthesisNodeConfig,
   type SynthesisOutputFormat,
+  type TeamNodeConfig,
 } from "../../types";
 import { PromptEditor } from "../code/PromptEditor";
 import { resolveProvider, useEditorEnv } from "../context";
@@ -719,10 +726,84 @@ export function HumanForm({ config, update }: FormProps<HumanNodeConfig>) {
   );
 }
 
+// ----------------------------------------------------------------------------- team
+
+export function TeamForm({ id, config, update }: FormProps<TeamNodeConfig>) {
+  const env = useEditorEnv();
+  const teams = useTeams(env.workspaceId);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const pickId = useFieldId("team");
+  const source = config.team ? "inline" : "template";
+  const list = teams.data ?? [];
+  const template = config.team_id ? list.find((t) => t.id === config.team_id) : undefined;
+  const spec = config.team ?? template?.spec ?? null;
+  const options: SelectOption[] = list.map((t) => ({ value: t.id, label: t.name, description: teamSummaryText(t.spec), icon: <Users /> }));
+  if (config.team_id && !template && !teams.isPending) options.push({ value: config.team_id, label: config.team_id, description: "Bulunamadı" });
+  return (
+    <>
+      <Section title={teamStrings.node.source} action={<Link to="/teams" className="text-xs text-accent outline-none hover:underline focus-visible:shadow-[var(--focus-ring)]">{teamStrings.node.openTeam}</Link>}>
+        <SegmentedControl
+          size="sm"
+          fullWidth
+          aria-label={teamStrings.node.source}
+          value={source}
+          onValueChange={(v) => {
+            if (v === "template") update({ team: null });
+            else setSheetOpen(true);
+          }}
+          options={[
+            { value: "template" as const, label: teamStrings.node.fromTemplate },
+            { value: "inline" as const, label: teamStrings.node.inline },
+          ]}
+        />
+        <FormField label={teamStrings.node.templatePick} htmlFor={pickId} hint={teams.isError ? teamStrings.node.teamsMissing : undefined}>
+          {teams.isPending ? (
+            <Skeleton height={28} />
+          ) : (
+            <Select
+              id={pickId}
+              size="sm"
+              aria-label={teamStrings.node.templatePick}
+              placeholder={teamStrings.node.templatePlaceholder}
+              value={config.team_id ?? undefined}
+              invalid={!config.team_id && !config.team}
+              options={options}
+              className="w-full"
+              onValueChange={(v) => update({ team_id: v, team: null })}
+            />
+          )}
+        </FormField>
+        {spec && (
+          <div className="flex flex-col gap-2 rounded-lg border border-line-subtle bg-canvas-subtle p-3" data-testid="team-node-preview">
+            <MiniOrgChart spec={spec} className="h-20" aria-label={teamStrings.preview(template?.name ?? teamStrings.node.inline)} />
+            <p className="truncate text-center text-xs text-fg-muted">{teamSummaryText(spec)}</p>
+          </div>
+        )}
+        <Button size="sm" variant="secondary" icon={<PencilRuler />} onClick={() => setSheetOpen(true)} data-testid="team-node-edit">
+          {teamStrings.node.editInline}
+        </Button>
+        <p className="-mt-1 text-xs text-fg-muted">{teamStrings.node.editInlineHint}</p>
+      </Section>
+      <PromptSection nodeId={id} value={config.prompt_template} onChange={(v) => update({ prompt_template: v })} title={teamStrings.node.prompt} hint={teamStrings.node.promptHint} />
+      <ReposPicker value={config.repo_ids} onChange={(v) => update({ repo_ids: v })} />
+      <TeamBuilderSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        spec={spec ?? defaultTeamSpec()}
+        name={template?.name ?? teamStrings.builder.untitled}
+        onApply={(next) => update({ team: next })}
+        onSaved={(t) => update({ team_id: t.id, team: null })}
+      />
+    </>
+  );
+}
+
 /** The form for a config, by kind. */
 export function NodeConfigForm({ id, config, update }: FormProps<NodeConfig>) {
   const u = update as (patch: Partial<NodeConfig>) => void;
   switch (config.kind) {
+    case "team":
+      return <TeamForm id={id} config={config} update={u} />;
     case "agent":
       return <AgentForm id={id} config={config} update={u} />;
     case "advisor":

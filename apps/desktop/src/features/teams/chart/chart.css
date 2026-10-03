@@ -1,0 +1,40 @@
+/* Team org charts (builder + live view): xyflow internals themed from tokens. */
+
+.team-chart .react-flow__node {
+  border-radius: 12px;
+}
+.team-chart .react-flow__node:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.team-chart .react-flow__node:focus-visible > div {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 5px;
+  border-radius: 14px;
+}
+.team-chart .react-flow__edge {
+  pointer-events: none;
+}
+/* After the first layout, cards glide to their new places when the tree changes (never while dragged). */
+.team-chart.is-settled .react-flow__node:not(.dragging) {
+  transition: transform var(--dur-page) var(--ease-out);
+}
+.team-chart .react-flow__node.draggable {
+  cursor: grab;
+}
+.team-chart .react-flow__node.dragging {
+  cursor: grabbing;
+  z-index: 10 !important;
+}
+.team-chart .react-flow__pane.draggable {
+  cursor: default;
+}
+.team-chart .react-flow__pane.dragging {
+  cursor: grabbing;
+}
+.team-chart .react-flow__minimap {
+  background: transparent;
+}
+.team-chart .react-flow__minimap-mask {
+  fill: color-mix(in srgb, var(--canvas) 72%, transparent);
+}

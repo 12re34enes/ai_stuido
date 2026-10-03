@@ -10,9 +10,10 @@ import type { AgentRole, Provider, SessionRecord } from "@/lib/types";
 export type TaskStatus = "draft" | "queued" | "running" | "waiting" | "completed" | "failed" | "cancelled";
 export type RunStatus = "running" | "waiting" | "completed" | "failed" | "cancelled";
 export type NodeStatus = "pending" | "running" | "waiting" | "passed" | "failed" | "skipped" | "cancelled";
-export type FlowMode = "single" | "duo" | "race" | "pipeline" | "council" | "custom";
+export type FlowMode = "single" | "duo" | "race" | "pipeline" | "council" | "team" | "custom";
 
 export type NodeKind =
+  | "team"
   | "agent"
   | "advisor"
   | "gate"

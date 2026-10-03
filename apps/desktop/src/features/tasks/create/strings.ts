@@ -100,6 +100,7 @@ export const createStrings = {
     scheduleMissing: "Bir başlangıç zamanı seçin.",
     schedulePast: "Başlangıç zamanı gelecekte olmalı.",
     noWorkspace: "Önce bir çalışma alanı oluşturun.",
+    team: "Bir ekip seçin.",
   },
   commands: {
     newWithMode: (label: string) => `Yeni görev: ${label}`,

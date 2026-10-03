@@ -134,7 +134,7 @@ export function TaskComposer({ workspace, className }: TaskComposerProps) {
       shake();
       const budgetOrSchedule = Object.keys(result.errors).some((k) => k.startsWith("budget.") || k === "scheduledAt");
       if (budgetOrSchedule) useComposer.getState().setAdvancedOpen(true);
-      else focus();
+      else if (!result.errors.team || result.errors.prompt) focus();
       return;
     }
     setErrors({});
@@ -304,7 +304,18 @@ export function TaskComposer({ workspace, className }: TaskComposerProps) {
       </AnimatePresence>
 
       <motion.div layout="position" transition={spring.layout}>
-        <ModePanel workspaceId={workspace.id} mode={draft.mode} onModeChange={draft.setMode} studio={studio} flow={studio ? null : flow} />
+        <ModePanel
+          workspaceId={workspace.id}
+          mode={draft.mode}
+          onModeChange={(m) => {
+            draft.setMode(m);
+            clearError("team");
+          }}
+          studio={studio}
+          flow={studio ? null : flow}
+          teamError={errors.team}
+          onTeamPicked={() => clearError("team")}
+        />
       </motion.div>
     </div>
   );

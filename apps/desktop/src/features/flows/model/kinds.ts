@@ -3,10 +3,12 @@
  * conditions that make sense for each source kind (mirrors engine/validation.py rules).
  */
 import type { LucideIcon } from "lucide-react";
-import { Bot, Combine, GitMerge, GitPullRequestArrow, Lightbulb, Merge, Rocket, Scale, ShieldCheck, Signpost, Split, UserRound } from "lucide-react";
+import { Bot, Combine, GitMerge, GitPullRequestArrow, Lightbulb, Merge, Rocket, Scale, ShieldCheck, Signpost, Split, UserRound, Users } from "lucide-react";
 
+import { normalizeSpec } from "../../teams/model/spec";
 import { kindStrings } from "../strings";
 import type {
+  TeamNodeConfig,
   AgentNodeConfig,
   Boundaries,
   ConfigOf,
@@ -44,12 +46,14 @@ const icons: Record<NodeKind, LucideIcon> = {
   git: GitPullRequestArrow,
   deploy: Rocket,
   human: UserRound,
+  team: Users,
 };
 
 const groups: Record<NodeKind, PaletteGroup> = {
   agent: "agents",
   advisor: "agents",
   synthesis: "agents",
+  team: "agents",
   gate: "control",
   condition: "control",
   compare: "control",
@@ -63,7 +67,7 @@ const groups: Record<NodeKind, PaletteGroup> = {
 
 /** Palette order: the order the spec lists node kinds in, grouped. */
 export const PALETTE_GROUPS: { id: PaletteGroup; kinds: NodeKind[] }[] = [
-  { id: "agents", kinds: ["agent", "advisor", "synthesis"] },
+  { id: "agents", kinds: ["agent", "team", "advisor", "synthesis"] },
   { id: "control", kinds: ["gate", "condition", "compare", "human"] },
   { id: "branching", kinds: ["parallel", "join"] },
   { id: "delivery", kinds: ["merge", "git", "deploy"] },
@@ -159,6 +163,7 @@ export function defaultConfig<K extends NodeKind>(kind: K, opts: { fresh?: boole
     },
     deploy: { kind: "deploy", profile_id: "" },
     human: { kind: "human", instructions: "", input_schema: null },
+    team: { kind: "team", team_id: null, team: null, prompt_template: "{{ input.prompt }}", repo_ids: null },
   };
   return structuredClone(configs[kind]) as ConfigOf<K>;
 }
@@ -171,6 +176,10 @@ export function normalizeConfig(config: Partial<NodeConfig> & { kind: NodeKind }
   if (config.kind === "agent") {
     const b = (config as Partial<AgentNodeConfig>).boundaries;
     out.boundaries = b ? { ...defaultBoundaries(), ...b } : null;
+  }
+  if (config.kind === "team") {
+    const team = (config as Partial<TeamNodeConfig>).team;
+    out.team = team ? normalizeSpec(team) : null;
   }
   return out as unknown as NodeConfig;
 }

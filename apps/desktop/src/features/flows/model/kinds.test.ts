@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { gateStrings, kindStrings } from "../strings";
 import { NODE_KINDS } from "../types";
-import { conditionsFor, defaultConfig, defaultLabel, defaultSettings, isValidNodeId, kindInfo, nextNodeId, normalizeSettings, PALETTE_GROUPS, suggestCondition } from "./kinds";
+import { conditionsFor, defaultConfig, defaultLabel, defaultSettings, isValidNodeId, kindInfo, nextNodeId, normalizeConfig, normalizeSettings, PALETTE_GROUPS, suggestCondition } from "./kinds";
+import { nodeSummary } from "./summary";
 
 describe("node kinds", () => {
   it("has palette entries, Turkish names and one-line descriptions for every kind", () => {
@@ -14,7 +15,17 @@ describe("node kinds", () => {
       expect(info.description.length).toBeLessThanOrEqual(38);
       expect(info.icon).toBeTruthy();
     }
-    expect(NODE_KINDS.map((k) => kindStrings[k].label)).toEqual(["Ajan", "Danışman", "Kapı", "Paralel", "Birleşme", "Karşılaştır", "Koşul", "Sentez", "Merge", "Git", "Deploy", "İnsan"]);
+    expect(NODE_KINDS.map((k) => kindStrings[k].label)).toEqual(["Ajan", "Danışman", "Kapı", "Paralel", "Birleşme", "Karşılaştır", "Koşul", "Sentez", "Merge", "Git", "Deploy", "İnsan", "Ekip"]);
+  });
+
+  it("supports the team node (contracts/flows.py TeamNodeConfig)", () => {
+    expect(defaultConfig("team")).toEqual({ kind: "team", team_id: null, team: null, prompt_template: "{{ input.prompt }}", repo_ids: null });
+    expect(kindInfo("team").group).toBe("agents");
+    expect(nodeSummary(defaultConfig("team"))).toBe("Ekip seçilmedi");
+    expect(nodeSummary({ ...defaultConfig("team"), team_id: "web" }, { teams: new Map([["web", { name: "Web ekibi", members: 7 }]]) })).toBe("Web ekibi · 7 üye");
+    const inline = normalizeConfig({ kind: "team", team: { members: [{ id: "lead", role: "lead" }] } as never });
+    expect(inline.kind === "team" && inline.team?.members[0]).toMatchObject({ name: "Lider", provider: "claude" });
+    expect(nodeSummary(inline)).toBe("Satır içi ekip · 1 üye");
   });
 
   it("mirrors the pydantic defaults", () => {

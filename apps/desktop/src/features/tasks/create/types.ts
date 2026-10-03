@@ -5,13 +5,18 @@
  */
 import type { Environment, Provider } from "@/lib/types";
 
+import type { TeamSpec } from "../../teams/types";
 import type { Budget, FlowGraph, FlowMode, TaskSource } from "../list/types";
 
 export interface TaskCreateBody {
   workspace_id: string;
   title: string;
   prompt: string;
-  mode: FlowMode;
+  mode: FlowMode | "team";
+  /** mode "team": a saved team / built-in template… */
+  team_id?: string | null;
+  /** …or an inline spec (wins over team_id; contracts/engine.py TaskCreate). */
+  team?: TeamSpec | null;
   flow_id?: string | null;
   studio_id?: string | null;
   repo_ids?: string[] | null;

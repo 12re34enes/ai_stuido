@@ -2,7 +2,7 @@
  * Detail of the selected flow node: status, attempts, live progress, waiting approvals, agents
  * (→ drawer), gate evidence, output and agent-submitted evidence. Retry for failed nodes.
  */
-import { AlertOctagon, Bot, ChevronDown, GitMerge, Hourglass, Lightbulb, MousePointerClick, RotateCcw, ShieldCheck, Sparkles, User } from "lucide-react";
+import { AlertOctagon, Bot, ChevronDown, GitMerge, Hourglass, Lightbulb, MousePointerClick, RotateCcw, ShieldCheck, Sparkles, User, Users } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState, type ReactNode } from "react";
 
@@ -59,6 +59,7 @@ const kindIcon: Partial<Record<NodeKind, typeof Bot>> = {
   gate: ShieldCheck,
   human: User,
   merge: GitMerge,
+  team: Users,
 };
 
 function NodeIcon({ kind, provider }: { kind: NodeKind; provider?: Provider }) {

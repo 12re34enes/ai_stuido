@@ -117,6 +117,7 @@ export function renameInConfig(config: NodeConfig, from: string, to: string): No
     case "advisor":
       return { ...config, prompt_template: r(config.prompt_template) };
     case "synthesis":
+    case "team":
       return { ...config, prompt_template: r(config.prompt_template) };
     case "condition":
       return { ...config, expression: r(config.expression) };

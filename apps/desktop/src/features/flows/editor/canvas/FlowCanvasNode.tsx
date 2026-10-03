@@ -56,7 +56,7 @@ function FlowCanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
         ? "rounded-[6px] border-codex-line bg-codex-surface"
         : "rounded-lg border-line bg-surface";
   const radius = provider === "claude" ? "rounded-xl" : provider === "codex" ? "rounded-[6px]" : "rounded-lg";
-  const summary = nodeSummary(config, { profiles: env.profilesById, deployProfiles: env.deployProfilesById, outgoing });
+  const summary = nodeSummary(config, { profiles: env.profilesById, deployProfiles: env.deployProfilesById, teams: env.teamsById, outgoing });
   const format = outputFormatLabel(config);
   const issueText = issues?.map((i) => i.message).join("\n");
 

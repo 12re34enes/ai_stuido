@@ -14,6 +14,7 @@ export const kindStrings: Record<NodeKind, { label: string; description: string;
   git: { label: "Git", description: "Push yapar ya da PR/MR açar", long: "Push yapar ya da PR/MR açar; istersen PR'ı takip eder." },
   deploy: { label: "Deploy", description: "Deploy profilini çalıştırır", long: "Seçilen deploy profilini çalıştırır." },
   human: { label: "İnsan", description: "Senden girdi ya da elle adım", long: "Senden girdi ister ya da elle yapılacak bir adımı bekler." },
+  team: { label: "Ekip", description: "Lider, üyeler ve test ajanları", long: "Lider görevi alır, işi ekibe böler; üyeler kendi worktree'lerinde çalışır, sonuçlar yukarı birleşir." },
 };
 
 export const gateStrings: Record<GateKind, { label: string; short: string; description: string }> = {
@@ -80,6 +81,7 @@ export const modeLabels: Record<FlowMode, string> = {
   race: "Yarış",
   pipeline: "Hat",
   council: "Kurul",
+  team: "Ekip",
   custom: "Özel",
 };
 

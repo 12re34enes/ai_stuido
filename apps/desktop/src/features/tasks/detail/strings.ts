@@ -19,6 +19,7 @@ export const s = {
     race: "Yarış",
     pipeline: "Hat",
     council: "Kurul",
+    team: "Ekip",
     custom: "Özel",
   } satisfies Record<FlowMode, string>,
 
@@ -65,6 +66,7 @@ export const s = {
     git: "Git",
     deploy: "Deploy",
     human: "Kullanıcı adımı",
+    team: "Ekip",
   } satisfies Record<NodeKind, string>,
 
   gateKind: {

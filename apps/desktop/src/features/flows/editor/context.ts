@@ -12,9 +12,11 @@ export interface EditorEnv {
   profilesById: Map<string, AgentProfile>;
   deployProfilesById: Map<string, DeployProfile>;
   repos: Repo[];
+  /** Saved teams / templates (team nodes): name and member count by id. */
+  teamsById?: Map<string, { name: string; members: number }>;
 }
 
-export const EMPTY_ENV: EditorEnv = { workspaceId: null, profiles: [], profilesById: new Map(), deployProfilesById: new Map(), repos: [] };
+export const EMPTY_ENV: EditorEnv = { workspaceId: null, profiles: [], profilesById: new Map(), deployProfilesById: new Map(), repos: [], teamsById: new Map() };
 
 export const EditorEnvContext = createContext<EditorEnv>(EMPTY_ENV);
 

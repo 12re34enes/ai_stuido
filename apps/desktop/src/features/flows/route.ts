@@ -1,7 +1,7 @@
 /** /flows/* location parsing. */
 import type { FlowMode } from "./types";
 
-const MODES: FlowMode[] = ["single", "duo", "race", "pipeline", "council", "custom"];
+const MODES: FlowMode[] = ["single", "duo", "race", "pipeline", "council", "team", "custom"];
 
 export type FlowsRoute =
   | { page: "list" }

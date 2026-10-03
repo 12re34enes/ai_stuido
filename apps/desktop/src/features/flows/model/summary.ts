@@ -1,12 +1,16 @@
 /** One-line Turkish summaries shown under node titles on the canvas (and in pickers). */
 import { uiStrings } from "@/ui/strings";
 
+import { s as teamStrings } from "../../teams/strings";
+
 import { gateStrings, mergeStrategyStrings, outputFormatStrings, synthesisFormatStrings } from "../strings";
 import type { AgentProfile, DeployProfile, NodeConfig } from "../types";
 
 export interface SummaryContext {
   profiles?: Map<string, AgentProfile>;
   deployProfiles?: Map<string, DeployProfile>;
+  /** Saved teams / templates by id (team nodes). */
+  teams?: Map<string, { name: string; members: number }>;
   outgoing?: number;
 }
 
@@ -57,6 +61,12 @@ export function nodeSummary(config: NodeConfig, ctx: SummaryContext = {}): strin
     }
     case "human":
       return config.instructions.trim() ? firstLine(config.instructions, 50) : "Talimat yazılmadı";
+    case "team": {
+      if (config.team) return teamStrings.node.inlineSummary(config.team.members.length);
+      if (!config.team_id) return teamStrings.node.noTeamSummary;
+      const t = ctx.teams?.get(config.team_id);
+      return t ? teamStrings.node.templateSummary(t.name, t.members) : config.team_id;
+    }
   }
 }
 

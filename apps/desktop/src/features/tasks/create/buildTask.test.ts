@@ -9,6 +9,8 @@ function draft(over: Partial<ComposerDraft> = {}): ComposerDraft {
     title: "",
     prompt: "",
     mode: "duo",
+    teamId: null,
+    teamSpec: null,
     studioId: null,
     studioInputs: {},
     repoIds: null,
@@ -117,6 +119,27 @@ describe("buildTaskBody", () => {
       source: "studio",
       inputs: { symptom: "Ödeme sayfası 500 veriyor", logs: "Traceback…", environment: "Yerel", repo: "repo_1" },
     });
+  });
+});
+
+describe("team mode", () => {
+  const spec = { members: [], settings: {} } as never;
+
+  it("requires a team", () => {
+    expect(buildTaskBody(draft({ prompt: "x", mode: "team" }), ctx)).toEqual({ ok: false, errors: { team: "Bir ekip seçin." } });
+  });
+
+  it("sends the team template, or the customized spec inline", () => {
+    const byId = buildTaskBody(draft({ prompt: "Ödeme formu", mode: "team", teamId: "team_web" }), ctx);
+    expect(byId.ok && byId.body).toMatchObject({ mode: "team", team_id: "team_web" });
+    expect(byId.ok && "team" in byId.body).toBe(false);
+    const inline = buildTaskBody(draft({ prompt: "Ödeme formu", mode: "team", teamId: "team_web", teamSpec: spec }), ctx);
+    expect(inline.ok && inline.body).toMatchObject({ mode: "team", team_id: "team_web", team: spec });
+  });
+
+  it("lets a saved flow override Ekip mode", () => {
+    const res = buildTaskBody(draft({ prompt: "x", mode: "team", flowId: "flow_1" }), ctx);
+    expect(res.ok && res.body).toMatchObject({ mode: "custom", flow_id: "flow_1" });
   });
 });
 

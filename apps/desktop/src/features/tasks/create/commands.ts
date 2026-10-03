@@ -6,7 +6,7 @@
  *   - the five most recent tasks of the current workspace (kept in sync with the task caches)
  * ("Yeni görev" ⌘N and "Görevler" ⌘2 come from the shell.)
  */
-import { CalendarClock, ListChecks, ListOrdered } from "lucide-react";
+import { CalendarClock, ListChecks, ListOrdered, UsersRound } from "lucide-react";
 
 import { commandGroups, registerCommands, type StudioCommand } from "@/lib/commands";
 import { queryClient } from "@/lib/queryClient";
@@ -17,7 +17,8 @@ import { taskKeys } from "../list/queries";
 import { modeLabel, statusLabel } from "../list/status";
 import { taskStrings } from "../list/strings";
 import { MODES, type BuiltinMode, type Task } from "../list/types";
-import { useComposer } from "./composerStore";
+import { s as teamStrings } from "../../teams/strings";
+import { useComposer, type ComposerMode } from "./composerStore";
 import { modeIcons } from "./icons";
 import { createStrings as s } from "./strings";
 
@@ -27,7 +28,7 @@ export function goTo(path: string): void {
 }
 
 /** Open the home composer (optionally in a mode) and focus it. */
-export function openComposer(mode?: BuiltinMode): void {
+export function openComposer(mode?: ComposerMode): void {
   if (mode) useComposer.getState().setMode(mode);
   goTo("/");
   useShell.getState().requestComposerFocus();
@@ -55,6 +56,15 @@ function staticCommands(): StudioCommand[] {
   );
   return [
     ...modes,
+    {
+      id: "task.new.team",
+      title: s.commands.newWithMode(teamStrings.composer.mode),
+      group: commandGroups.actions,
+      icon: UsersRound,
+      keywords: ["yeni görev", "new task", "ekip", "team", "lider", "danışman"],
+      order: 1 + modes.length,
+      run: () => openComposer("team"),
+    },
     {
       id: "tasks.queue",
       title: taskStrings.commands.queue,

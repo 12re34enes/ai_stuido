@@ -4,7 +4,7 @@
  * (agents → drawer, gates with evidence, output), the run's changes, gate overview and checkpoints;
  * usage and runs on the side. Live through one task event stream that patches the caches.
  */
-import { History } from "lucide-react";
+import { History, Maximize2, Users, Workflow } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
@@ -12,7 +12,11 @@ import { useNavigate } from "react-router";
 import { useEnvironmentScope } from "@/lib/environment";
 import { usePendingApprovals, useWorkspaces } from "@/lib/queries";
 import { spring, variants } from "@/motion/tokens";
-import { Button, ProgressBar, Tabs, TabsContent, TabsList, TabsTrigger, toast } from "@/ui";
+import { Button, ProgressBar, SegmentedControl, Select, Tabs, TabsContent, TabsList, TabsTrigger, toast } from "@/ui";
+
+import { TeamLiveView } from "../../teams/live/TeamLiveView";
+import { teamsPaths } from "../../teams/route";
+import { s as teamStrings } from "../../teams/strings";
 
 import {
   downloadTaskExport,
@@ -108,6 +112,16 @@ export function TaskDetailPage({ taskId }: { taskId: string }) {
   const [tab, setTab] = useState<Tab>("node");
   const tabsRef = useRef<HTMLDivElement>(null);
 
+  // ------------------------------------------------------------------ team (spec §25)
+  // Team-mode tasks and flows with team nodes get the live team view as the main canvas tab.
+  const teamNodes = useMemo(() => (graph?.nodes ?? []).filter((n) => n.config.kind === "team"), [graph]);
+  const isTeamTask = task?.mode === "team" || teamNodes.length > 0;
+  const [canvasPick, setCanvasPick] = useState<"team" | "flow" | null>(null);
+  const canvasTab: "team" | "flow" = isTeamTask && runId ? (canvasPick ?? "team") : "flow";
+  const [teamNodePick, setTeamNodePick] = useState<string | null>(null);
+  const runningTeamNode = teamNodes.find((n) => view?.nodes[n.id]?.status === "running" || view?.nodes[n.id]?.status === "waiting")?.id;
+  const teamNodeId = (teamNodePick && teamNodes.some((n) => n.id === teamNodePick) ? teamNodePick : null) ?? runningTeamNode ?? teamNodes[0]?.id ?? null;
+
   const nodeLabel = useCallback((id: string) => graph?.nodes.find((n) => n.id === id)?.label ?? id, [graph]);
 
   // ------------------------------------------------------------------ actions
@@ -171,10 +185,18 @@ export function TaskDetailPage({ taskId }: { taskId: string }) {
     setTab("changes");
     requestAnimationFrame(() => tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }, []);
-  const selectNode = useCallback((id: string) => {
-    setSelected(id);
-    setTab("node");
-  }, []);
+  const selectNode = useCallback(
+    (id: string) => {
+      setSelected(id);
+      setTab("node");
+      // A team node opens its live team view.
+      if (graph?.nodes.find((n) => n.id === id)?.config.kind === "team" && runId) {
+        setTeamNodePick(id);
+        setCanvasPick("team");
+      }
+    },
+    [graph, runId],
+  );
 
   const failedNode = useMemo(() => {
     if (!view || !run || run.status === "completed") return null;
@@ -241,7 +263,35 @@ export function TaskDetailPage({ taskId }: { taskId: string }) {
       {/* flow progress */}
       <motion.section layout="position" transition={spring.layout} aria-labelledby="flow-title" className="overflow-hidden rounded-xl border border-line bg-surface shadow-1">
         <div className="flex h-12 items-center gap-3 border-b border-line-subtle px-5">
-          <SectionTitle id="flow-title">{s.flow}</SectionTitle>
+          {isTeamTask && runId ? (
+            <>
+              <h2 id="flow-title" className="sr-only">
+                {canvasTab === "team" ? teamStrings.live.title : s.flow}
+              </h2>
+              <SegmentedControl<"team" | "flow">
+                size="sm"
+                aria-label={s.flow}
+                value={canvasTab}
+                onValueChange={setCanvasPick}
+                options={[
+                  { value: "team", label: teamStrings.live.label, icon: <Users /> },
+                  { value: "flow", label: s.flow, icon: <Workflow /> },
+                ]}
+              />
+              {canvasTab === "team" && teamNodes.length > 1 && (
+                <Select
+                  size="sm"
+                  aria-label={teamStrings.live.pickNode}
+                  value={teamNodeId ?? undefined}
+                  options={teamNodes.map((n) => ({ value: n.id, label: n.label }))}
+                  onValueChange={setTeamNodePick}
+                  className="w-44"
+                />
+              )}
+            </>
+          ) : (
+            <SectionTitle id="flow-title">{s.flow}</SectionTitle>
+          )}
           {view && !preview && (
             <div className="flex items-center gap-2.5">
               <span className="text-xs whitespace-nowrap text-fg-muted tabular">{s.flowProgress(view.done, view.total)}</span>
@@ -252,6 +302,11 @@ export function TaskDetailPage({ taskId }: { taskId: string }) {
           )}
           {preview && graph && <span className="truncate text-xs text-fg-faint">{s.flowPreview}</span>}
           <div className="ml-auto flex items-center gap-1">
+            {canvasTab === "team" && runId && (
+              <Button size="sm" variant="ghost" icon={<Maximize2 />} onClick={() => void navigate(teamsPaths.live(runId, teamNodeId))}>
+                {teamStrings.live.openFull}
+              </Button>
+            )}
             {runId && (
               <Button size="sm" variant="ghost" icon={<History />} onClick={openReplay}>
                 {s.replay}
@@ -259,6 +314,9 @@ export function TaskDetailPage({ taskId }: { taskId: string }) {
             )}
           </div>
         </div>
+        {canvasTab === "team" && runId ? (
+          <TeamLiveView key={`${runId}:${teamNodeId ?? ""}`} runId={runId} nodeId={teamNodeId} />
+        ) : (
         <div className="bg-canvas-subtle bg-[radial-gradient(var(--line)_1px,transparent_1px)] [background-size:18px_18px]">
           {layout && view ? (
             <FlowCanvas layout={layout} view={view} info={info} selected={selectedId} onSelect={selectNode} preview={preview} />
@@ -277,6 +335,7 @@ export function TaskDetailPage({ taskId }: { taskId: string }) {
             </div>
           )}
         </div>
+        )}
       </motion.section>
 
       {/* node / changes / gates / checkpoints + side */}

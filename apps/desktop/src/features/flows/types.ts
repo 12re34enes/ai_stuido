@@ -5,6 +5,8 @@
  */
 import type { AgentRole, Environment, Provider } from "@/lib/types";
 
+import type { TeamSpec } from "../teams/types";
+
 export type { AgentRole, Provider };
 
 // --------------------------------------------------------------------------- enums
@@ -21,7 +23,8 @@ export type NodeKind =
   | "merge"
   | "git"
   | "deploy"
-  | "human";
+  | "human"
+  | "team";
 
 export const NODE_KINDS: readonly NodeKind[] = [
   "agent",
@@ -36,6 +39,7 @@ export const NODE_KINDS: readonly NodeKind[] = [
   "git",
   "deploy",
   "human",
+  "team",
 ];
 
 export type GateKind =
@@ -67,7 +71,7 @@ export const EDGE_CONDITIONS: readonly EdgeCondition[] = ["default", "passed", "
 /** Conditions that may close a cycle (engine graph.py LOOP_CONDITIONS). */
 export const LOOP_CONDITIONS: ReadonlySet<EdgeCondition> = new Set(["failed", "false", "rejected"]);
 
-export type FlowMode = "single" | "duo" | "race" | "pipeline" | "council" | "custom";
+export type FlowMode = "single" | "duo" | "race" | "pipeline" | "council" | "team" | "custom";
 
 // --------------------------------------------------------------------------- boundaries (contracts/agents.py)
 
@@ -197,7 +201,19 @@ export interface HumanNodeConfig {
   input_schema: Record<string, unknown> | null;
 }
 
+/** Runs a team (spec §25): the lead gets the rendered prompt and delegates down the tree. */
+export interface TeamNodeConfig {
+  kind: "team";
+  /** Saved team template (latest version)… */
+  team_id: string | null;
+  /** …or an inline spec (wins over team_id). */
+  team: TeamSpec | null;
+  prompt_template: string;
+  repo_ids: string[] | null;
+}
+
 export type NodeConfig =
+  | TeamNodeConfig
   | AgentNodeConfig
   | AdvisorNodeConfig
   | GateNodeConfig

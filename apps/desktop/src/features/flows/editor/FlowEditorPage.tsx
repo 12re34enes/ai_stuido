@@ -18,6 +18,7 @@ import { Button, ConfirmDialog, Dialog, EmptyState, Spinner, toast } from "@/ui"
 import { isTypingTarget, matchesShortcut } from "@/ui/shortcuts";
 
 import { fetchFlowVersion, fetchModeGraph, fetchStudio, useDeployProfiles, useFlow, useModes, useProfiles, useRepos, useUpdateFlow } from "../api";
+import { useTeams } from "../../teams/api";
 import type { TemplatePick } from "../components/TemplateCards";
 import { kindInfo, normalizeSettings, PALETTE_GROUPS } from "../model/kinds";
 import { modeLabels, s } from "../strings";
@@ -115,6 +116,8 @@ function EditorScreen({ flowId, mode = null, studio = null, blank = false }: Flo
   const repos = useRepos(workspaceId);
   const hasDeploy = useEditor((st) => st.nodes.some((n) => n.data.config.kind === "deploy"));
   const deploy = useDeployProfiles(workspaceId, hasDeploy);
+  const hasTeam = useEditor((st) => st.nodes.some((n) => n.data.config.kind === "team"));
+  const teams = useTeams(workspaceId, hasTeam);
   const modes = useModes();
   const flow = useFlow(flowId);
   const updateFlow = useUpdateFlow().mutateAsync;
@@ -134,8 +137,9 @@ function EditorScreen({ flowId, mode = null, studio = null, blank = false }: Flo
       profilesById: new Map((profiles.data ?? []).map((p) => [p.id, p])),
       deployProfilesById: new Map((deploy.data ?? []).map((p) => [p.id, p])),
       repos: repos.data ?? [],
+      teamsById: new Map((teams.data ?? []).map((t) => [t.id, { name: t.name, members: t.spec.members.length }])),
     }),
-    [deploy.data, profiles.data, repos.data, workspaceId],
+    [deploy.data, profiles.data, repos.data, teams.data, workspaceId],
   );
 
   /** Middle of the canvas area left visible by the palette and the inspector that opens on add. */
