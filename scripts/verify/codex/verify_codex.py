@@ -2,13 +2,18 @@
 
     cd backend && uv run python ../scripts/verify/codex/verify_codex.py [--model M] [--effort low]
                                                                       [--codex /path/to/codex] [--quick]
+                                                                      [--subagents]
 
 Uses a throw-away git repository and tiny prompts (about 9 short turns with reasoning effort
 "low"; ``--quick`` runs only the free checks plus one streaming turn). Checks: schema drift
 against the installed CLI, health, rate limits, account, streaming, command approval (allow and
 deny), file change approval, dynamic Studio tool call, steer, interrupt, resume, thread listing
-and history import. Raw JSON-RPC streams (masked with ``Masker``) and normalized events go to
-``scripts/verify/out/codex/<time>/``; a Turkish result table is printed. Exit code 1 on failure.
+and history import. ``--subagents`` (costs a little extra quota) asks the model to spawn one
+sub-agent that runs a command needing approval and checks SubagentStarted (name from thread/read),
+payloads tagged with the sub-agent thread id, the approval's subagent_id, SubagentCompleted and
+the sub-agent in the imported history. Raw JSON-RPC streams (masked with ``Masker``) and
+normalized events go to ``scripts/verify/out/codex/<time>/``; a Turkish result table is printed.
+Exit code 1 on failure.
 """
 
 from __future__ import annotations
@@ -40,6 +45,8 @@ from aistudio.contracts.agents import (
     PermissionDecision,
     PermissionRequest,
     SessionSpec,
+    SubagentCompleted,
+    SubagentStarted,
     ToolCall,
     ToolKind,
     TurnCompleted,
@@ -340,6 +347,7 @@ class Runner:
         self.policy = Policy()
         self.session: Any = None
         self.native_id: str | None = None
+        self.subagent_id: str | None = None
         self.logged_in = False
 
     async def check(self, name: str, fn: Callable[[], Awaitable[str]], *, needs_login: bool = True) -> None:
@@ -545,6 +553,43 @@ class Runner:
         done = self.sink.of(TurnCompleted, mark)
         return f"thread/resume tamam, hafıza {'korundu' if remembered else 'belirsiz'} ({len(done)} tur)"
 
+    async def c_subagents(self) -> str:
+        before = len(self.policy.requests)
+        result, mark = await self.turn(
+            "Spawn exactly one sub-agent with your spawn_agent tool. Its task: run the shell command "
+            "`touch subagent.txt` in the current directory, then reply with the single word: ready. "
+            "Wait for it to finish, then reply with exactly what it reported."
+        )
+        started = self.sink.of(SubagentStarted, mark)
+        if not started:
+            raise AssertionError(
+                f"alt ajan açılmadı (tur: {result.status}); bu Codex sürümünde çoklu ajan özelliği kapalı olabilir"
+            )
+        sid = started[0].subagent_id
+        self.subagent_id = sid
+        await self._wait_for(
+            lambda: any(c.subagent_id == sid for c in self.sink.of(SubagentCompleted, mark)), TURN_TIMEOUT
+        )
+        done = next(c for c in self.sink.of(SubagentCompleted, mark) if c.subagent_id == sid)
+        merged: dict[str, Any] = {}
+        for st in started:
+            if st.subagent_id == sid:
+                merged.update({k: v for k, v in st.model_dump().items() if v is not None})
+        inside = [e for e in self.sink.events[mark:] if getattr(e, "subagent_id", None) == sid]
+        calls = [e.tool for e in inside if isinstance(e, ToolCall)]
+        asked = [r for r in self.policy.requests[before:] if r.subagent_id == sid]
+        if not inside:
+            raise AssertionError("alt ajanın kendi olayları gelmedi (thread dinleyicisi?)")
+        if not asked:
+            raise AssertionError(f"alt ajan içinden onay isteği gelmedi (araçlar: {calls})")
+        if done.status != "success":
+            raise AssertionError(f"alt ajan sonucu {done.status}: {done.result_text!r}")
+        return (
+            f"ad={merged.get('name')}, model={merged.get('model')}, çağrı={merged.get('parent_call_id')}, "
+            f"{len(inside)} olay, araçlar={calls}, onay={asked[0].summary!r}, "
+            f"dosya={(self.repo / 'subagent.txt').exists()}"
+        )
+
     async def c_listing(self) -> str:
         sessions = await self.adapter.list_native_sessions(self.transport, cwd=str(self.repo))
         ids = [s.native_id for s in sessions]
@@ -557,7 +602,16 @@ class Runner:
         )
         if not turns:
             raise AssertionError("geçmişte tur yok")
-        return f"{len(sessions)} oturum, geçmiş {len(turns)} tur / {len(history)} olay"
+        detail = f"{len(sessions)} oturum, geçmiş {len(turns)} tur / {len(history)} olay"
+        if self.subagent_id:
+            subs = [p for p in history if isinstance(p, SubagentStarted) and p.subagent_id == self.subagent_id]
+            if not subs:
+                raise AssertionError("alt ajan geçmişte yok")
+            if self.subagent_id in ids:
+                raise AssertionError("alt ajan thread'i ayrı bir oturum olarak listelendi")
+            inner = [p for p in history if getattr(p, "subagent_id", None) == self.subagent_id]
+            detail += f", alt ajan geçmişte ({len(inner)} olay)"
+        return detail
 
     async def c_limit_events(self) -> str:
         if not self.sink.limits_seen:
@@ -597,6 +651,8 @@ class Runner:
             await self.check("Yönlendirme (steer)", self.c_steer)
             await self.check("Durdurma (interrupt)", self.c_interrupt)
             await self.check("Devam ettirme (resume)", self.c_resume)
+        if self.args.subagents:
+            await self.check("Yerel alt ajan (spawn_agent)", self.c_subagents)
         if self.session is not None:
             with contextlib.suppress(Exception):
                 await self.session.close()
@@ -629,6 +685,9 @@ def main() -> int:
     ap.add_argument("--model", default=None, help="model (default: CLI default)")
     ap.add_argument("--effort", default="low", help="reasoning effort (default: low)")
     ap.add_argument("--quick", action="store_true", help="only free checks + one streaming turn")
+    ap.add_argument(
+        "--subagents", action="store_true", help="also check CLI-native sub-agents (costs a little extra quota)"
+    )
     args = ap.parse_args()
     out_dir = OUT_ROOT / datetime.now().strftime("%Y%m%d-%H%M%S")
     out_dir.mkdir(parents=True, exist_ok=True)

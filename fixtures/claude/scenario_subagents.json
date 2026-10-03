@@ -1,0 +1,696 @@
+{
+ "_comment": "CLI-native subagents (Agent tool) as stream-json frames, shapes per CLI 2.1.288 (SDK 0.3.288 types, CLI zod schemas, real transcripts). Parallel + nested + permission inside a subagent + failing + background subagent. Played by backend/tests/adapters_claude/fake_claude.py.",
+ "model": "claude-sonnet-4-5",
+ "turns": [
+  [
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_main1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5",
+      "content": [
+       {
+        "type": "text",
+        "text": "Alt ajanları başlatıyorum."
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 10,
+       "output_tokens": 5,
+       "cache_read_input_tokens": 0,
+       "cache_creation_input_tokens": 0
+      }
+     },
+     "parent_tool_use_id": null,
+     "session_id": "$SESSION",
+     "uuid": "a-1",
+     "user_message_uuids": "$UUIDS"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_main1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5",
+      "content": [
+       {
+        "type": "tool_use",
+        "id": "toolu_explore",
+        "name": "Agent",
+        "input": {
+         "description": "Testleri bul",
+         "prompt": "Depodaki test dosyalarını bul ve listele. Sadece okuma yap.",
+         "subagent_type": "Explore",
+         "run_in_background": false
+        }
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 10,
+       "output_tokens": 5,
+       "cache_read_input_tokens": 0,
+       "cache_creation_input_tokens": 0
+      }
+     },
+     "parent_tool_use_id": null,
+     "session_id": "$SESSION",
+     "uuid": "a-2"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_main1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5",
+      "content": [
+       {
+        "type": "tool_use",
+        "id": "toolu_fail",
+        "name": "Agent",
+        "input": {
+         "description": "Kırık iş",
+         "prompt": "Bozuk bir işi dene.",
+         "run_in_background": false
+        }
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 10,
+       "output_tokens": 5,
+       "cache_read_input_tokens": 0,
+       "cache_creation_input_tokens": 0
+      }
+     },
+     "parent_tool_use_id": null,
+     "session_id": "$SESSION",
+     "uuid": "a-3"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "system",
+     "subtype": "task_started",
+     "session_id": "$SESSION",
+     "uuid": "sys-task_started",
+     "task_id": "a1explore",
+     "tool_use_id": "toolu_explore",
+     "description": "Testleri bul",
+     "subagent_type": "Explore",
+     "is_backgrounded": false,
+     "spawn_depth": 1,
+     "task_type": "local_agent",
+     "prompt": "Depodaki test dosyalarını bul ve listele. Sadece okuma yap."
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "system",
+     "subtype": "task_started",
+     "session_id": "$SESSION",
+     "uuid": "sys-task_started",
+     "task_id": "a2fail",
+     "tool_use_id": "toolu_fail",
+     "description": "Kırık iş",
+     "subagent_type": "general-purpose",
+     "is_backgrounded": false,
+     "spawn_depth": 1,
+     "task_type": "local_agent",
+     "prompt": "Bozuk bir işi dene."
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_ex1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "content": [
+       {
+        "type": "thinking",
+        "thinking": "Önce testleri listelemeliyim.",
+        "signature": "s"
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 1200,
+       "output_tokens": 30,
+       "cache_read_input_tokens": 800,
+       "cache_creation_input_tokens": 100
+      }
+     },
+     "parent_tool_use_id": "toolu_explore",
+     "session_id": "$SESSION",
+     "uuid": "ax-1",
+     "subagent_type": "Explore",
+     "task_description": "Testleri bul"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_ex1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "content": [
+       {
+        "type": "text",
+        "text": "Testleri arıyorum."
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 1200,
+       "output_tokens": 40,
+       "cache_read_input_tokens": 800,
+       "cache_creation_input_tokens": 100
+      }
+     },
+     "parent_tool_use_id": "toolu_explore",
+     "session_id": "$SESSION",
+     "uuid": "ax-2",
+     "subagent_type": "Explore",
+     "task_description": "Testleri bul"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_ex1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "content": [
+       {
+        "type": "tool_use",
+        "id": "toolu_sub_bash",
+        "name": "Bash",
+        "input": {
+         "command": "npm test -- --list",
+         "description": "List tests"
+        }
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 1200,
+       "output_tokens": 60,
+       "cache_read_input_tokens": 800,
+       "cache_creation_input_tokens": 100
+      }
+     },
+     "parent_tool_use_id": "toolu_explore",
+     "session_id": "$SESSION",
+     "uuid": "ax-3",
+     "subagent_type": "Explore",
+     "task_description": "Testleri bul"
+    }
+   },
+   {
+    "op": "permission",
+    "tool": "Bash",
+    "input": {
+     "command": "npm test -- --list",
+     "description": "List tests"
+    },
+    "tool_use_id": "toolu_sub_bash",
+    "agent_id": "a1explore",
+    "on_allow": [
+     {
+      "op": "emit",
+      "msg": {
+       "type": "user",
+       "message": {
+        "role": "user",
+        "content": [
+         {
+          "type": "tool_result",
+          "tool_use_id": "toolu_sub_bash",
+          "content": "a.test.ts\nb.test.ts",
+          "is_error": false
+         }
+        ]
+       },
+       "parent_tool_use_id": "toolu_explore",
+       "session_id": "$SESSION",
+       "uuid": "ux-1",
+       "tool_use_result": {
+        "stdout": "a.test.ts\nb.test.ts",
+        "stderr": "",
+        "interrupted": false
+       },
+       "subagent_type": "Explore",
+       "task_description": "Testleri bul"
+      }
+     }
+    ],
+    "on_deny": [
+     {
+      "op": "emit",
+      "msg": {
+       "type": "user",
+       "message": {
+        "role": "user",
+        "content": [
+         {
+          "type": "tool_result",
+          "tool_use_id": "toolu_sub_bash",
+          "content": "The user denied this action.",
+          "is_error": true
+         }
+        ]
+       },
+       "parent_tool_use_id": "toolu_explore",
+       "session_id": "$SESSION",
+       "uuid": "ux-1",
+       "subagent_type": "Explore",
+       "task_description": "Testleri bul"
+      }
+     }
+    ]
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_ex2",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "content": [
+       {
+        "type": "tool_use",
+        "id": "toolu_nested",
+        "name": "Agent",
+        "input": {
+         "description": "Betikleri listele",
+         "prompt": "package.json betiklerini listele.",
+         "subagent_type": "general-purpose",
+         "model": "haiku"
+        }
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 1500,
+       "output_tokens": 20,
+       "cache_read_input_tokens": 1000,
+       "cache_creation_input_tokens": 0
+      }
+     },
+     "parent_tool_use_id": "toolu_explore",
+     "session_id": "$SESSION",
+     "uuid": "ax-4",
+     "subagent_type": "Explore",
+     "task_description": "Testleri bul"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "system",
+     "subtype": "task_started",
+     "session_id": "$SESSION",
+     "uuid": "sys-task_started",
+     "task_id": "a3nested",
+     "tool_use_id": "toolu_nested",
+     "description": "Betikleri listele",
+     "subagent_type": "general-purpose",
+     "is_backgrounded": false,
+     "spawn_depth": 2,
+     "task_type": "local_agent",
+     "prompt": "package.json betiklerini listele."
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_n1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "content": [
+       {
+        "type": "text",
+        "text": "test, lint, build"
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 300,
+       "output_tokens": 10,
+       "cache_read_input_tokens": 0,
+       "cache_creation_input_tokens": 0
+      }
+     },
+     "parent_tool_use_id": "toolu_nested",
+     "session_id": "$SESSION",
+     "uuid": "an-1",
+     "subagent_type": "general-purpose",
+     "task_description": "Betikleri listele"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "user",
+     "message": {
+      "role": "user",
+      "content": [
+       {
+        "type": "tool_result",
+        "tool_use_id": "toolu_nested",
+        "content": [
+         {
+          "type": "text",
+          "text": "test, lint, build"
+         }
+        ],
+        "is_error": false
+       }
+      ]
+     },
+     "parent_tool_use_id": "toolu_explore",
+     "session_id": "$SESSION",
+     "uuid": "ux-2",
+     "tool_use_result": {
+      "status": "completed",
+      "agentId": "a3nested",
+      "agentType": "general-purpose",
+      "content": [
+       {
+        "type": "text",
+        "text": "test, lint, build"
+       }
+      ],
+      "resolvedModel": "claude-haiku-4-5",
+      "totalDurationMs": 900,
+      "totalTokens": 310,
+      "totalToolUseCount": 0,
+      "usage": {
+       "input_tokens": 300,
+       "output_tokens": 10,
+       "cache_read_input_tokens": 0,
+       "cache_creation_input_tokens": 0
+      },
+      "prompt": "package.json betiklerini listele."
+     },
+     "subagent_type": "Explore",
+     "task_description": "Testleri bul"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_ex3",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "content": [
+       {
+        "type": "text",
+        "text": "İki test dosyası var."
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 1800,
+       "output_tokens": 25,
+       "cache_read_input_tokens": 1200,
+       "cache_creation_input_tokens": 0
+      }
+     },
+     "parent_tool_use_id": "toolu_explore",
+     "session_id": "$SESSION",
+     "uuid": "ax-5",
+     "subagent_type": "Explore",
+     "task_description": "Testleri bul"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "user",
+     "message": {
+      "role": "user",
+      "content": [
+       {
+        "type": "tool_result",
+        "tool_use_id": "toolu_explore",
+        "content": [
+         {
+          "type": "text",
+          "text": "İki test dosyası var: a.test.ts, b.test.ts"
+         }
+        ],
+        "is_error": false
+       }
+      ]
+     },
+     "parent_tool_use_id": null,
+     "session_id": "$SESSION",
+     "uuid": "u-1",
+     "tool_use_result": {
+      "status": "completed",
+      "agentId": "a1explore",
+      "agentType": "Explore",
+      "content": [
+       {
+        "type": "text",
+        "text": "İki test dosyası var: a.test.ts, b.test.ts"
+       }
+      ],
+      "resolvedModel": "claude-haiku-4-5",
+      "totalDurationMs": 4200,
+      "totalTokens": 3025,
+      "totalToolUseCount": 2,
+      "usage": {
+       "input_tokens": 1800,
+       "output_tokens": 25,
+       "cache_read_input_tokens": 1200,
+       "cache_creation_input_tokens": 0
+      },
+      "prompt": "Depodaki test dosyalarını bul ve listele. Sadece okuma yap."
+     }
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "user",
+     "message": {
+      "role": "user",
+      "content": [
+       {
+        "type": "tool_result",
+        "tool_use_id": "toolu_fail",
+        "content": "Agent failed: API Error: 529 overloaded",
+        "is_error": true
+       }
+      ]
+     },
+     "parent_tool_use_id": null,
+     "session_id": "$SESSION",
+     "uuid": "u-2"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_main2",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5",
+      "content": [
+       {
+        "type": "tool_use",
+        "id": "toolu_bg",
+        "name": "Agent",
+        "input": {
+         "description": "Arka plan incelemesi",
+         "prompt": "Son değişiklikleri arka planda incele.",
+         "subagent_type": "code-reviewer",
+         "run_in_background": true
+        }
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 10,
+       "output_tokens": 5,
+       "cache_read_input_tokens": 0,
+       "cache_creation_input_tokens": 0
+      }
+     },
+     "parent_tool_use_id": null,
+     "session_id": "$SESSION",
+     "uuid": "a-4"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "system",
+     "subtype": "task_started",
+     "session_id": "$SESSION",
+     "uuid": "sys-task_started",
+     "task_id": "a4bg",
+     "tool_use_id": "toolu_bg",
+     "description": "Arka plan incelemesi",
+     "subagent_type": "code-reviewer",
+     "is_backgrounded": true,
+     "spawn_depth": 1,
+     "task_type": "local_agent",
+     "prompt": "Son değişiklikleri arka planda incele."
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "user",
+     "message": {
+      "role": "user",
+      "content": [
+       {
+        "type": "tool_result",
+        "tool_use_id": "toolu_bg",
+        "content": [
+         {
+          "type": "text",
+          "text": "Async agent launched successfully.\nagentId: a4bg"
+         }
+        ],
+        "is_error": false
+       }
+      ]
+     },
+     "parent_tool_use_id": null,
+     "session_id": "$SESSION",
+     "uuid": "u-3",
+     "tool_use_result": {
+      "isAsync": true,
+      "status": "async_launched",
+      "agentId": "a4bg",
+      "description": "Arka plan incelemesi",
+      "resolvedModel": "claude-sonnet-4-5",
+      "prompt": "Son değişiklikleri arka planda incele.",
+      "outputFile": "/tmp/tasks/a4bg.output"
+     }
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_main3",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5",
+      "content": [
+       {
+        "type": "text",
+        "text": "Alt ajanlar çalışıyor."
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 10,
+       "output_tokens": 5,
+       "cache_read_input_tokens": 0,
+       "cache_creation_input_tokens": 0
+      }
+     },
+     "parent_tool_use_id": null,
+     "session_id": "$SESSION",
+     "uuid": "a-5"
+    }
+   },
+   {
+    "op": "result",
+    "result": "Alt ajanlar çalışıyor."
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "assistant",
+     "message": {
+      "id": "msg_bg1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5",
+      "content": [
+       {
+        "type": "text",
+        "text": "İnceleme tamam: sorun yok."
+       }
+      ],
+      "stop_reason": null,
+      "usage": {
+       "input_tokens": 2000,
+       "output_tokens": 50,
+       "cache_read_input_tokens": 0,
+       "cache_creation_input_tokens": 0
+      }
+     },
+     "parent_tool_use_id": "toolu_bg",
+     "session_id": "$SESSION",
+     "uuid": "ab-1",
+     "subagent_type": "code-reviewer",
+     "task_description": "Arka plan incelemesi"
+    }
+   },
+   {
+    "op": "emit",
+    "msg": {
+     "type": "system",
+     "subtype": "task_notification",
+     "session_id": "$SESSION",
+     "uuid": "sys-task_notification",
+     "task_id": "a4bg",
+     "tool_use_id": "toolu_bg",
+     "status": "completed",
+     "output_file": "/tmp/tasks/a4bg.output",
+     "summary": "Agent \"Arka plan incelemesi\" finished",
+     "usage": {
+      "total_tokens": 2050,
+      "tool_uses": 0,
+      "duration_ms": 9000
+     }
+    }
+   }
+  ]
+ ]
+}

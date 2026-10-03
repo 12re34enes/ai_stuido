@@ -3,7 +3,10 @@
 Transcripts live in ``<config>/projects/<sanitized cwd>/<session id>.jsonl`` (one JSON record
 per line, append-only). ``<sanitized cwd>`` is the cwd with every non-alphanumeric character
 replaced by ``-``; names longer than 200 chars are cut and get a hash suffix. Subagent
-transcripts live in ``<session id>/subagents/`` and are not sessions of their own.
+transcripts live in ``<session id>/subagents/agent-<agentId>.jsonl`` (every record has
+``isSidechain: true`` and ``agentId``) next to ``agent-<agentId>.meta.json`` (``agentType``,
+``description``, ``toolUseId`` = the spawning tool_use id, ``spawnDepth``, ``requestShape``);
+they are not sessions of their own and are replayed inside the parent's history.
 
 Listing reads only the head and tail of each file (like the official SDK) through a single
 ``sh`` invocation per batch, so it is cheap over SSH as well; the full file is read only when a
@@ -15,13 +18,14 @@ from __future__ import annotations
 import json
 import re
 import secrets
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
 from aistudio.adapters.claude.normalize import ClaudeNormalizer, content_text, context_tokens
 from aistudio.adapters.claude.protocol import as_dict, as_int, as_list, as_str
+from aistudio.adapters.claude.subagents import parse_task_notification
 from aistudio.contracts.agents import (
     AgentErrorEv,
     AgentEventPayload,
@@ -349,21 +353,113 @@ def _close_turn(turn: _HistTurn) -> list[AgentEventPayload]:
     return out
 
 
-def history_payloads(text: str, native_id: str) -> list[AgentEventPayload]:
+@dataclass
+class SubagentTranscript:
+    """``subagents/agent-<agent_id>.jsonl`` (+ its ``.meta.json``) of a session."""
+
+    agent_id: str
+    text: str
+    meta: dict[str, Any] = field(default_factory=dict)
+
+
+def agent_id_from_path(path: str) -> str | None:
+    name = path.rsplit("/", 1)[-1]
+    for suffix in (".meta.json", ".jsonl"):
+        if name.startswith("agent-") and name.endswith(suffix):
+            return name[len("agent-") : -len(suffix)] or None
+    return None
+
+
+def _task_notification_text(rec: dict[str, Any]) -> str | None:
+    for t in _user_texts(rec) or []:
+        if "<task-notification>" in t:
+            return t
+    return None
+
+
+class _SubagentReplay:
+    """Splices subagent transcripts into the parent's replay right before the spawning tool's
+    result (foreground) or at launch (background), tagging everything with ``subagent_id``."""
+
+    def __init__(self, norm: ClaudeNormalizer, transcripts: Mapping[str, SubagentTranscript]) -> None:
+        self._norm = norm
+        self._transcripts = transcripts
+        self._by_tool_use = {
+            str(t.meta["toolUseId"]): t.agent_id for t in transcripts.values() if as_str(t.meta.get("toolUseId"))
+        }
+        self._done: set[str] = set()
+
+    def before_results(self, rec: dict[str, Any]) -> list[AgentEventPayload]:
+        results = [as_dict(b) for b in as_list(as_dict(rec.get("message")).get("content"))]
+        results = [b for b in results if b.get("type") == "tool_result"]
+        out: list[AgentEventPayload] = []
+        for block in results:
+            call_id = as_str(block.get("tool_use_id"))
+            if not call_id or not self._norm.subagents.known(call_id):
+                continue
+            agent_id = as_str(as_dict(rec.get("toolUseResult")).get("agentId")) if len(results) == 1 else None
+            agent_id = agent_id or self._by_tool_use.get(call_id)
+            if agent_id:
+                out += self._replay(agent_id, call_id)
+        return out
+
+    def _replay(self, agent_id: str, subagent_id: str) -> list[AgentEventPayload]:
+        transcript = self._transcripts.get(agent_id)
+        if transcript is None or agent_id in self._done:
+            return []
+        self._done.add(agent_id)
+        out: list[AgentEventPayload] = []
+        for rec in iter_records(transcript.text):
+            rtype = rec.get("type")
+            if rtype not in ("user", "assistant"):
+                continue
+            tagged = {**rec, "parent_tool_use_id": subagent_id}
+            if rtype == "user":
+                if not any(
+                    as_dict(b).get("type") == "tool_result" for b in as_list(as_dict(rec.get("message")).get("content"))
+                ):
+                    continue  # the subagent's prompt and harness notes
+                out += self.before_results(tagged)
+                out += self._norm.user(tagged, tool_use_result=rec.get("toolUseResult")).payloads
+            elif rec.get("isApiErrorMessage") is not True:
+                out += self._norm.assistant(tagged).payloads
+        return out
+
+
+def history_payloads(
+    text: str, native_id: str, subagents: Mapping[str, SubagentTranscript] | None = None
+) -> list[AgentEventPayload]:
     """Normalized replay of a transcript: SessionStarted, then per human prompt a TurnStarted,
-    the assistant messages / tool calls / results / file changes, Usage and TurnCompleted."""
+    the assistant messages / tool calls / results / file changes, Usage and TurnCompleted.
+    CLI-native subagents (``subagents``: transcripts by agent id) are replayed in place as
+    SubagentStarted, their tagged payloads and SubagentCompleted."""
     records = [r for r in iter_records(text) if r.get("isSidechain") is not True]
     convo = [r for r in records if r.get("type") in ("user", "assistant")]
     if not convo:
         return []
     cwd = _first(convo, "cwd")
     norm = ClaudeNormalizer(cwd)
+    replay = _SubagentReplay(norm, subagents or {})
     out: list[AgentEventPayload] = [
         SessionStarted(native_id=native_id, model=_model(convo), cwd=cwd or "", cli_version=_first(convo, "version"))
     ]
     turn: _HistTurn | None = None
-    for index, rec in enumerate(convo):
-        if rec.get("type") == "user":
+    index = -1
+    for rec in records:
+        rtype = rec.get("type")
+        if rtype == "attachment":
+            att = as_dict(rec.get("attachment"))
+            if att.get("type") == "queued_command" and att.get("commandMode") == "task-notification":
+                out += norm.subagents.text_notification(as_str(att.get("prompt")) or "", att.get("usage"))
+            continue
+        if rtype not in ("user", "assistant"):
+            continue
+        index += 1
+        if rtype == "user":
+            notification = _task_notification_text(rec)
+            if notification is not None and parse_task_notification(notification):
+                out += norm.subagents.text_notification(notification)
+                continue
             prompt = prompt_text(rec)
             if prompt is not None:
                 if turn is not None:
@@ -376,6 +472,7 @@ def history_payloads(text: str, native_id: str) -> list[AgentEventPayload]:
                 if turn is not None:
                     turn.interrupted = True
                 continue
+            out += replay.before_results(rec)
             out += norm.user(rec, tool_use_result=rec.get("toolUseResult")).payloads
             continue
         message = as_dict(rec.get("message"))
@@ -396,6 +493,7 @@ def history_payloads(text: str, native_id: str) -> list[AgentEventPayload]:
                 block = as_dict(raw)
                 if block.get("type") == "text" and (as_str(block.get("text")) or "").strip():
                     turn.last_text = as_str(block.get("text"))
+    out += norm.subagents.finish("interrupted")  # never saw their end (session stopped first)
     if turn is not None:
         out += _close_turn(turn)
     return out

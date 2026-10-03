@@ -3,10 +3,13 @@
 Each ``PermissionRequest`` from an adapter is evaluated by :func:`aistudio.agents.policy.evaluate`.
 ``allow``/``deny`` are answered immediately; ``ask`` becomes a ``tool_permission`` approval
 and the agent waits (state ``waiting_permission``) until the user decides. Every request emits
-``agent.permission.request`` and ``agent.permission.decided``.
+``agent.permission.request`` and ``agent.permission.decided``. Requests raised inside a
+CLI-native subagent go through the same policy; their summary is prefixed with
+``Alt ajan (<name>): `` and they carry ``subagent_id`` / ``subagent_name``.
 
 Events:
-    agent.permission.request  {request_id, tool, kind, summary, command, paths, verdict, rule, policy_reason}
+    agent.permission.request  {request_id, tool, kind, summary, command, paths, verdict, rule, policy_reason,
+                               subagent_id, subagent_name}
     agent.permission.decided  {request_id, allow, reason, decided_by, rule, approval_id}
 """
 
@@ -22,6 +25,7 @@ from typing import Any
 from aistudio.agents.live import LiveSession
 from aistudio.agents.policy import DEFAULT_SAFE_COMMANDS, PolicyContext, PolicyDecision, evaluate, request_paths
 from aistudio.agents.roles import PROVIDER_NAMES, ROLE_LABELS
+from aistudio.agents.subagents import SubagentIndex
 from aistudio.contracts.agents import AgentState, PermissionDecision, PermissionRequest
 from aistudio.contracts.approvals import Approval, ApprovalKind, ApprovalRequest, ApprovalService, ApprovalStatus
 from aistudio.core.context import AppContext
@@ -64,10 +68,27 @@ async def _setting(ctx: AppContext, key: str, default: Any) -> Any:
 class PermissionGate:
     """:data:`aistudio.contracts.agents.PermissionHandler` for one live session."""
 
-    def __init__(self, ctx: AppContext, live: LiveSession, set_state: StateSetter) -> None:
+    def __init__(
+        self, ctx: AppContext, live: LiveSession, set_state: StateSetter, subagents: SubagentIndex | None = None
+    ) -> None:
         self._ctx = ctx
         self._live = live
         self._set_state = set_state
+        self._subagents = subagents
+
+    def _subagent(self, req: PermissionRequest) -> tuple[str | None, str | None]:
+        """(name, description) of the subagent a request comes from."""
+        if not req.subagent_id or self._subagents is None:
+            return None, None
+        return self._subagents.name_of(self._live.id, req.subagent_id) or (None, None)
+
+    def _with_subagent(self, req: PermissionRequest) -> PermissionRequest:
+        """Prefix the summary so every surface (event, approval inbox, alerts) shows who asks."""
+        if not req.subagent_id:
+            return req
+        name, _ = self._subagent(req)
+        prefix = f"Alt ajan ({name})" if name else "Alt ajan"
+        return req.model_copy(update={"summary": f"{prefix}: {req.summary}"})
 
     async def policy_context(self) -> PolicyContext:
         safe = await _setting(self._ctx, SETTING_SAFE_COMMANDS, list(DEFAULT_SAFE_COMMANDS))
@@ -88,6 +109,7 @@ class PermissionGate:
         except Exception:  # a policy bug must fail closed, but still let the user decide
             log.exception("policy evaluation failed for session %s", live.id)
             decision = PolicyDecision("ask", "Politika değerlendirilemedi; kullanıcı onayı gerekiyor.", "policy_error")
+        req = self._with_subagent(req)
         paths = request_paths(req)
         await self._ctx.events.append(
             ET.AGENT_PERMISSION_REQUEST,
@@ -102,6 +124,8 @@ class PermissionGate:
                 "verdict": decision.verdict,
                 "rule": decision.rule,
                 "policy_reason": decision.reason,
+                "subagent_id": req.subagent_id,
+                "subagent_name": self._subagent(req)[0],
             },
             actor=live.actor,
             **live.ids(),
@@ -134,7 +158,12 @@ class PermissionGate:
         live = self._live
         provider = PROVIDER_NAMES.get(live.provider, live.provider)
         role = ROLE_LABELS.get(live.role, live.role)
-        lines = [f"Ajan: {live.label} ({provider}, {role})", f"Araç: {req.tool}"]
+        lines = [f"Ajan: {live.label} ({provider}, {role})"]
+        sub_name, sub_description = self._subagent(req)
+        if req.subagent_id:
+            label = sub_name or "adsız"
+            lines.append(f"Alt ajan: {label}" + (f" - {truncate(sub_description, 200)}" if sub_description else ""))
+        lines.append(f"Araç: {req.tool}")
         if req.command:
             lines.append(f"Komut: {truncate(req.command, 2000)}")
         if paths:
@@ -159,6 +188,8 @@ class PermissionGate:
                 "input": _compact(req.input),
                 "policy_rule": decision.rule,
                 "policy_reason": decision.reason,
+                "subagent_id": req.subagent_id,
+                "subagent_name": sub_name,
             },
             severity=Severity.critical if live.production else Severity.high,
             production=live.production,

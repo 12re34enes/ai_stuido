@@ -32,6 +32,7 @@ from aistudio.agents.profiles import AgentProfileOut, ProfileStore
 from aistudio.agents.roles import PROVIDER_NAMES, default_label, role_preamble
 from aistudio.agents.sessions import RUNNING_STATES, SessionRepo
 from aistudio.agents.sink import SessionSink
+from aistudio.agents.subagents import SubagentIndex, SubagentView
 from aistudio.agents.transport_local import LocalTransport, sanitize_extra_env
 from aistudio.contracts.agents import (
     EPHEMERAL_PAYLOADS,
@@ -118,6 +119,7 @@ class AgentManagerImpl:
         self._local = local
         self.profiles = ProfileStore(ctx.db, ctx.events)
         self.repo = SessionRepo(ctx.db)
+        self.subagents = SubagentIndex(ctx.db)
         self._live: dict[str, LiveSession] = {}
         self._locks: dict[str, asyncio.Lock] = {}
 
@@ -127,6 +129,9 @@ class AgentManagerImpl:
         recovered = await self.repo.recover_after_restart()
         if recovered:
             log.info("marked %d stale agent sessions as interrupted", recovered)
+        stale_subagents = await self.subagents.recover_after_restart()
+        if stale_subagents:
+            log.info("marked %d stale subagents as interrupted", stale_subagents)
         self._ctx.spawn(self._watchdog_loop(), name="agents-stall-watchdog")
 
     async def stop(self) -> None:
@@ -339,8 +344,8 @@ class AgentManagerImpl:
             production=prepared.production,
             native_id=record.native_id,
         )
-        sink = SessionSink(self._ctx, self.repo, live, self._on_ended)
-        gate = PermissionGate(self._ctx, live, self._set_live_state)
+        sink = SessionSink(self._ctx, self.repo, live, self._on_ended, self.subagents)
+        gate = PermissionGate(self._ctx, live, self._set_live_state, self.subagents)
         return live, sink, gate
 
     async def _set_live_state(self, live: LiveSession, state: AgentState) -> None:
@@ -629,12 +634,15 @@ class AgentManagerImpl:
                 continue
             await self._ctx.events.append(etype, payload.model_dump(mode="json"), actor=actor, **ids)
             count += 1
-            if isinstance(payload, Usage):
+            await self.subagents.apply(record.id, payload)
+            if isinstance(payload, Usage) and payload.subagent_id is None:
                 last_usage = payload
             elif isinstance(payload, TurnCompleted) and payload.usage is not None:
                 last_usage = payload.usage
             elif isinstance(payload, SessionStarted) and payload.model:
                 model = payload.model
+        await self.subagents.end_session(record.id)  # nothing runs in an imported history
+        self.subagents.forget(record.id)
         await self._ctx.events.append(
             "agent.session.imported",
             {
@@ -699,6 +707,15 @@ class AgentManagerImpl:
         live.state = AgentState.done
         if self._live.get(live.id) is live:
             self._live.pop(live.id, None)
+        try:  # normally done by the sink on SessionEnded; covers adapters that never sent it
+            await self.subagents.end_session(live.id)
+        except Exception:
+            log.exception("could not close subagents of session %s", live.id)
+        self.subagents.forget(live.id)
+
+    async def list_subagents(self, session_id: str) -> list[SubagentView]:
+        await self.repo.get(session_id)  # 404 for unknown sessions
+        return await self.subagents.list(session_id)
 
     # ------------------------------------------------------------------ stall watchdog
     async def check_stalls(self, minutes: float | None = None) -> list[str]:

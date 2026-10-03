@@ -32,7 +32,11 @@ from aistudio.contracts.agents import (
     SessionSpec,
     SessionStarted,
     StatusChanged,
+    SubagentCompleted,
+    SubagentStarted,
+    ToolCall,
     ToolKind,
+    ToolResultEv,
     TurnCompleted,
     TurnResult,
     TurnStarted,
@@ -71,7 +75,10 @@ class FakeSessionHandle:
 
     Message conventions: ``bash:<cmd>`` asks permission for a shell command, ``edit:<path>``
     for a file edit, ``read:<path>`` for a file read, ``hang`` starts a turn that never
-    finishes (stall tests). Anything else answers "Merhaba".
+    finishes (stall tests). ``subagents`` runs CLI-native subagents (``sa1`` "explorer" with a
+    nested ``sa2``, both finishing); ``subbash:<cmd>`` starts ``sa1`` and asks permission for a
+    shell command from inside it (left running); ``subhang`` starts ``sa1`` and never finishes.
+    Anything else answers "Merhaba".
     """
 
     def __init__(
@@ -125,6 +132,53 @@ class FakeSessionHandle:
         if text == "hang":
             await asyncio.Event().wait()
         n = self._n
+        if text in ("subagents", "subhang") or text.startswith("subbash:"):
+            await self._status(AgentState.running_tool)
+            await self.sink.emit(ToolCall(call_id="call-sa1", tool="Agent", kind=ToolKind.subagent))
+            await self.sink.emit(
+                SubagentStarted(
+                    subagent_id="sa1",
+                    parent_call_id="call-sa1",
+                    name="explorer",
+                    description="Testleri bul",
+                    prompt="Testleri bul ve listele",
+                )
+            )
+            await self.sink.emit(SubagentStarted(subagent_id="sa1", model="sub-model"))  # late model (upsert)
+            if text == "subhang":
+                await asyncio.Event().wait()
+        if text.startswith("subbash:"):
+            command = text[len("subbash:") :]
+            await self.ask(
+                PermissionRequest(
+                    request_id=f"perm-{n}",
+                    tool="Bash",
+                    kind=ToolKind.command,
+                    summary=f"`{command}` komutunu çalıştırmak istiyor",
+                    command=command,
+                    subagent_id="sa1",
+                )
+            )
+        if text == "subagents":
+            await self.sink.emit(ToolCall(call_id="sa1-bash", tool="Bash", kind=ToolKind.command, subagent_id="sa1"))
+            await self.sink.emit(ToolResultEv(call_id="sa1-bash", output="ok", subagent_id="sa1"))
+            await self.sink.emit(Message(message_id="sa1-m", text="İki test var", subagent_id="sa1"))
+            await self.sink.emit(Usage(input_tokens=120, output_tokens=30, subagent_id="sa1"))
+            await self.sink.emit(ToolCall(call_id="call-sa2", tool="Agent", kind=ToolKind.subagent, subagent_id="sa1"))
+            await self.sink.emit(
+                SubagentStarted(subagent_id="sa2", parent_subagent_id="sa1", parent_call_id="call-sa2", name="worker")
+            )
+            await self.sink.emit(MessageDelta(message_id="sa2-m", text="lis", subagent_id="sa2"))
+            await self.sink.emit(SubagentCompleted(subagent_id="sa2", status="error", result_text="olmadı"))
+            await self.sink.emit(
+                SubagentCompleted(
+                    subagent_id="sa1",
+                    status="success",
+                    result_text="Bitti: iki test",
+                    usage=Usage(input_tokens=150, output_tokens=40, subagent_id="sa1"),
+                )
+            )
+            await self.sink.emit(ToolResultEv(call_id="call-sa1", output="Bitti: iki test"))
         if text.startswith("bash:"):
             command = text[5:]
             await self._status(AgentState.running_tool)

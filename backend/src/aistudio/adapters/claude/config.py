@@ -49,6 +49,9 @@ class LaunchOptions:
     strict_mcp_config: bool = True  # only our MCP servers + spec.mcp_servers, not the user's
     setting_sources: Sequence[str] | None = None  # None = CLI default (user, project, local)
     studio_tool_timeout_ms: int | None = None  # None = CLI default (very long)
+    # Subagent text/thinking frames too (default: only their tool_use/tool_result frames), so
+    # CLI-native subagents can be shown as a nested live transcript.
+    forward_subagent_text: bool = True
     extra_args: Sequence[str] = field(default_factory=tuple)
 
 
@@ -178,6 +181,8 @@ def build_argv(
         "--permission-mode",
         "default",
     ]
+    if options.forward_subagent_text:
+        argv.append("--forward-subagent-text")
     if spec.resume_native_id:
         argv += ["--resume", spec.resume_native_id]
         if spec.fork:

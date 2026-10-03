@@ -15,8 +15,8 @@ Scenario format::
       "turns": [[step, ...], ...]         # one list per user turn
     }
 
-Steps: ``emit`` (msg), ``result`` (overrides), ``permission`` (tool, input, tool_use_id, on_allow,
-on_deny, cancel_after), ``mcp_call`` (tool, arguments, tool_use_id), ``wait_interrupt``
+Steps: ``emit`` (msg), ``result`` (overrides), ``permission`` (tool, input, tool_use_id, agent_id,
+on_allow, on_deny, cancel_after), ``mcp_call`` (tool, arguments, tool_use_id), ``wait_interrupt``
 (timeout, then), ``fold``, ``sleep`` (seconds), ``raw`` (line), ``stderr`` (text), ``exit`` (code).
 Strings ``$SESSION`` / ``$UUIDS`` / ``$CWD`` inside emitted messages are substituted.
 
@@ -254,8 +254,9 @@ class Fake:
                 "input": step.get("input", {}),
                 "tool_use_id": step.get("tool_use_id", "toolu_x"),
             }
-            if "decision_reason" in step:
-                req["decision_reason"] = step["decision_reason"]
+            for key in ("decision_reason", "agent_id", "title", "description"):
+                if key in step:  # agent_id: the request comes from inside a subagent
+                    req[key] = step[key]
             req_id = self.request(req)
             if "cancel_after" in step:
                 time.sleep(step["cancel_after"])

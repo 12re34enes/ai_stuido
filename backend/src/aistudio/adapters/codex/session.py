@@ -1,4 +1,10 @@
-"""A live Codex thread driven over one ``codex app-server`` process (AgentSessionHandle)."""
+"""A live Codex thread driven over one ``codex app-server`` process (AgentSessionHandle).
+
+Sub-agents: every other thread on this process is a sub-agent spawned below our thread (see
+``subagents.py``). Their notifications are routed to the ``_s_*`` handlers: payloads are tagged
+with ``subagent_id`` (= the sub-agent thread id) and never change the main thread's state or
+turn bookkeeping; approval requests from them carry ``PermissionRequest.subagent_id``.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +13,7 @@ import contextlib
 import logging
 import time
 from collections import deque
-from collections.abc import Coroutine
+from collections.abc import Coroutine, Sequence
 from typing import Any
 
 from pydantic import ValidationError
@@ -15,6 +21,7 @@ from pydantic import ValidationError
 from aistudio.adapters.codex import mapping as m
 from aistudio.adapters.codex import protocol as p
 from aistudio.adapters.codex.rpc import CloseInfo, RpcClosed, RpcConnection, RpcError
+from aistudio.adapters.codex.subagents import CodexSubagents
 from aistudio.contracts.agents import (
     AgentErrorEv,
     AgentEventPayload,
@@ -28,6 +35,7 @@ from aistudio.contracts.agents import (
     SessionEnded,
     SessionSpec,
     StatusChanged,
+    SubagentStarted,
     Thinking,
     ThinkingDelta,
     ToolCall,
@@ -48,6 +56,8 @@ log = logging.getLogger(__name__)
 
 CMD_OUTPUT_CAP = 256 * 1024
 MAX_TRACKED_TURNS = 200
+# Sub-agent notifications that do not prove the thread is working (no adoption without a spawn).
+_SUB_PASSIVE = frozenset({"thread/status/changed", "thread/closed", "error", "warning", "model/rerouted"})
 
 
 class CodexSession:
@@ -100,6 +110,7 @@ class CodexSession:
         self._cmd_output_size: dict[str, int] = {}
         self._approvals_waiting = 0
         self._bg: set[asyncio.Task[Any]] = set()
+        self._subs = CodexSubagents()
 
     # ================================================================== AgentSessionHandle
 
@@ -189,6 +200,7 @@ class CodexSession:
 
     def mark_started(self, native_id: str, *, model: str | None, cli_version: str | None) -> None:
         self._native_id = native_id
+        self._subs.main_thread_id = native_id
         self.model = model
         self.cli_version = cli_version
         self._started = True
@@ -360,7 +372,7 @@ class CodexSession:
             return
         thread_id = getattr(n, "thread_id", None)
         if thread_id and self._native_id and thread_id != self._native_id:
-            log.debug("codex: ignoring %s for other thread %s", method, thread_id)
+            await self._on_subagent_notification(method, n, thread_id)
             return
         handler = getattr(self, "_n_" + method.replace("/", "_"), None)
         if handler is not None:
@@ -372,28 +384,47 @@ class CodexSession:
     async def _n_turn_completed(self, n: p.TurnCompletedNotification) -> None:
         await self._on_turn_completed(n.turn)
 
+    async def _n_thread_started(self, n: p.ThreadStartedNotification) -> None:
+        if n.thread.id != self._native_id:
+            await self._announce(self._subs.thread_started(n.thread))
+
     async def _n_item_started(self, n: p.ItemStartedNotification) -> None:
+        await self._item_started(n, None)
+
+    async def _n_item_completed(self, n: p.ItemCompletedNotification) -> None:
+        await self._item_completed(n, None)
+
+    async def _item_started(self, n: p.ItemStartedNotification, sid: str | None) -> None:
         raw = n.item
         item_id = str(raw.get("id", ""))
         self._items[item_id] = raw
         item = m.parse_item(raw)
         if item is None or isinstance(item, p.UserMessageItem):
             return
+        main = sid is None
         if isinstance(item, p.AgentMessageItem):
-            await self.set_state(AgentState.responding)
+            if main:
+                await self.set_state(AgentState.responding)
             return
         if isinstance(item, p.ReasoningItem | p.PlanItem):
-            await self.set_state(AgentState.thinking)
+            if main:
+                await self.set_state(AgentState.thinking)
             return
         if isinstance(item, p.DynamicToolCallItem):
             return  # reported from the item/tool/call request, where we know args and result
+        if isinstance(item, p.SubAgentActivityItem):
+            await self._announce(self._subs.activity(item, n.thread_id))
+            return
+        if isinstance(item, p.CollabAgentToolCallItem):
+            self._subs.collab_started(item, n.thread_id)
         call = m.tool_call_for(item, self._cwd)
         if call is not None and call.call_id not in self._emitted_calls:
             self._emitted_calls.add(call.call_id)
-            await self._emit(call)
-            await self.set_state(AgentState.running_tool, call.summary)
+            await self._emit(m.tag(call, sid))
+            if main:
+                await self.set_state(AgentState.running_tool, call.summary)
 
-    async def _n_item_completed(self, n: p.ItemCompletedNotification) -> None:
+    async def _item_completed(self, n: p.ItemCompletedNotification, sid: str | None) -> None:
         raw = n.item
         item_id = str(raw.get("id", ""))
         self._items.pop(item_id, None)
@@ -401,34 +432,137 @@ class CodexSession:
         if item is None or isinstance(item, p.UserMessageItem):
             return
         if isinstance(item, p.AgentMessageItem):
-            await self._emit(Message(message_id=item.id, text=item.text))
+            await self._emit(Message(message_id=item.id, text=item.text, subagent_id=sid))
             self._turn_text[n.turn_id] = item.text
             if item.phase == "final_answer":
                 self._turn_final[n.turn_id] = item.text
+            if sid is not None:
+                self._subs.note_text(sid, item.text)
             return
         if isinstance(item, p.ReasoningItem):
             text = m.reasoning_text(item)
             if text:
-                await self._emit(Thinking(message_id=item.id, text=text))
+                await self._emit(Thinking(message_id=item.id, text=text, subagent_id=sid))
             return
         if isinstance(item, p.PlanItem):
             if item.text:
-                await self._emit(Thinking(message_id=item.id, text=item.text))
+                await self._emit(Thinking(message_id=item.id, text=item.text, subagent_id=sid))
             return
         if isinstance(item, p.DynamicToolCallItem):
+            return
+        if isinstance(item, p.SubAgentActivityItem):
+            await self._announce(self._subs.activity(item, n.thread_id))
             return
         call = m.tool_call_for(item, self._cwd)
         if call is None:
             return
         if call.call_id not in self._emitted_calls:
-            await self._emit(call)
+            await self._emit(m.tag(call, sid))
         self._emitted_calls.discard(call.call_id)
         streamed = "".join(self._cmd_output.pop(item_id, []))
         self._cmd_output_size.pop(item_id, None)
         for payload in m.tool_result_for(item, self._cwd, streamed_output=streamed):
-            await self._emit(payload)
-        if self._active_turn is not None and self._approvals_waiting == 0:
+            await self._emit(m.tag(payload, sid))
+        if isinstance(item, p.CollabAgentToolCallItem):
+            await self._announce(self._subs.collab_completed(item, n.thread_id))
+        if sid is None and self._active_turn is not None and self._approvals_waiting == 0:
             await self.set_state(AgentState.thinking)
+
+    # ------------------------------------------------------------------ sub-agent threads
+
+    async def _on_subagent_notification(self, method: str, n: Any, thread_id: str) -> None:
+        if method == "serverRequest/resolved":
+            await self._n_serverRequest_resolved(n)
+            return
+        sid = await self._subagent(thread_id, activity=method not in _SUB_PASSIVE)
+        if sid is None:
+            log.debug("codex: ignoring %s for unknown thread %s", method, thread_id)
+            return
+        handler = getattr(self, "_s_" + method.replace("/", "_"), None)
+        if handler is not None:
+            await handler(n, sid)
+
+    async def _subagent(self, thread_id: str, *, activity: bool) -> str | None:
+        """Sub-agent id for a thread, adopting a freshly spawned one."""
+        sub, started = self._subs.adopt(thread_id, activity=activity)
+        if sub is None:
+            return None
+        await self._announce(started)
+        return sub.id
+
+    async def _announce(self, payloads: Sequence[AgentEventPayload]) -> None:
+        """Emit, and look up name/model of newly seen sub-agents in the background."""
+        for payload in payloads:
+            await self._emit(payload)
+            if isinstance(payload, SubagentStarted):
+                sub = self._subs.get(payload.subagent_id)
+                if sub is not None and not sub.enriched:
+                    sub.enriched = True
+                    self._spawn(self._enrich(payload.subagent_id), "codex-subagent-enrich")
+
+    async def _enrich(self, thread_id: str) -> None:
+        try:
+            raw = await self._rpc().request(
+                "thread/read", p.ThreadReadParams(thread_id=thread_id, include_turns=False).wire(), timeout=30.0
+            )
+            thread = p.ThreadReadResponse.model_validate(raw).thread
+        except (RpcError, RpcClosed, ValidationError, TimeoutError, Unavailable) as e:
+            log.info("codex: could not read sub-agent thread %s: %s", thread_id, e)
+            return
+        for payload in self._subs.enrich(thread_id, thread):
+            await self._emit(payload)
+
+    async def _s_turn_started(self, n: p.TurnStartedNotification, sid: str) -> None:
+        await self._announce(self._subs.turn_started(sid))
+
+    async def _s_turn_completed(self, n: p.TurnCompletedNotification, sid: str) -> None:
+        tid = n.turn.id
+        text = self._turn_final.pop(tid, None) or self._turn_text.get(tid)
+        self._turn_text.pop(tid, None)
+        if not text and n.turn.error is not None:
+            text = n.turn.error.message
+        await self._announce(self._subs.turn_completed(sid, n.turn.status, text))
+
+    async def _s_item_started(self, n: p.ItemStartedNotification, sid: str) -> None:
+        await self._item_started(n, sid)
+
+    async def _s_item_completed(self, n: p.ItemCompletedNotification, sid: str) -> None:
+        await self._item_completed(n, sid)
+
+    async def _s_item_agentMessage_delta(self, n: p.AgentMessageDeltaNotification, sid: str) -> None:
+        await self._emit(MessageDelta(message_id=n.item_id, text=n.delta, subagent_id=sid))
+
+    async def _s_item_reasoning_summaryTextDelta(self, n: p.ReasoningSummaryTextDeltaNotification, sid: str) -> None:
+        await self._emit(ThinkingDelta(message_id=n.item_id, text=n.delta, subagent_id=sid))
+
+    async def _s_item_reasoning_textDelta(self, n: p.ReasoningTextDeltaNotification, sid: str) -> None:
+        await self._emit(ThinkingDelta(message_id=n.item_id, text=n.delta, subagent_id=sid))
+
+    async def _s_item_commandExecution_outputDelta(
+        self, n: p.CommandExecutionOutputDeltaNotification, sid: str
+    ) -> None:
+        await self._n_item_commandExecution_outputDelta(n)
+
+    async def _s_item_fileChange_patchUpdated(self, n: p.FileChangePatchUpdatedNotification, sid: str) -> None:
+        await self._n_item_fileChange_patchUpdated(n)
+
+    async def _s_thread_tokenUsage_updated(self, n: p.ThreadTokenUsageUpdatedNotification, sid: str) -> None:
+        # kept for SubagentCompleted.usage; not emitted as agent.usage (other modules sum those
+        # per task and count each as a turn)
+        self._subs.token_usage(sid, n.token_usage)
+
+    async def _s_thread_closed(self, n: p.ThreadClosedNotification, sid: str) -> None:
+        await self._announce(self._subs.closed(sid))
+
+    async def _s_error(self, n: p.ErrorNotification, sid: str) -> None:
+        log.info("codex: sub-agent %s error (retry=%s): %s", sid, n.will_retry, n.error.message)
+
+    async def _for_thread(self, req: PermissionRequest, thread_id: str | None) -> PermissionRequest:
+        """Attach the sub-agent a server request comes from."""
+        if not thread_id or thread_id == self._native_id or self._native_id is None:
+            return req
+        sid = await self._subagent(thread_id, activity=True)
+        return req.model_copy(update={"subagent_id": sid}) if sid else req
 
     async def _n_item_agentMessage_delta(self, n: p.AgentMessageDeltaNotification) -> None:
         if self._state != AgentState.responding:
@@ -524,6 +658,7 @@ class CodexSession:
         self, params: p.CommandExecutionRequestApprovalParams, request_id: int | str
     ) -> dict[str, Any]:
         req = m.command_permission(params, self._request_id(params.item_id, request_id))
+        req = await self._for_thread(req, params.thread_id)
         decision = await self._decide(req)
         return p.CommandExecutionRequestApprovalResponse(decision="accept" if decision.allow else "decline").wire()
 
@@ -533,6 +668,7 @@ class CodexSession:
         raw = self._items.get(params.item_id) or {}
         changes = [p.FileUpdateChange.model_validate(c) for c in raw.get("changes") or [] if isinstance(c, dict)]
         req = m.file_change_permission(params, changes, self._cwd, self._request_id(params.item_id, request_id))
+        req = await self._for_thread(req, params.thread_id)
         if self._advisor:
             log.info("codex: advisor session; declining file change %s", req.paths)
             return p.FileChangeRequestApprovalResponse(decision="decline").wire()
@@ -543,6 +679,7 @@ class CodexSession:
         self, params: p.PermissionsRequestApprovalParams, request_id: int | str
     ) -> dict[str, Any]:
         req = m.permissions_permission(params, self._request_id(params.item_id, request_id))
+        req = await self._for_thread(req, params.thread_id)
         if self._advisor and m.wants_write(params):
             return p.PermissionsRequestApprovalResponse(permissions=p.GrantedPermissionProfile()).wire()
         decision = await self._decide(req)
@@ -552,6 +689,9 @@ class CodexSession:
     async def _r_item_tool_call(self, params: p.DynamicToolCallParams, request_id: int | str) -> dict[str, Any]:
         name = f"{params.namespace}.{params.tool}" if params.namespace else params.tool
         args = m.as_args(params.arguments)
+        sid = None
+        if params.thread_id and params.thread_id != self._native_id and self._native_id is not None:
+            sid = await self._subagent(params.thread_id, activity=True)
         await self._emit(
             ToolCall(
                 call_id=params.call_id,
@@ -559,9 +699,11 @@ class CodexSession:
                 kind=ToolKind.studio,
                 input=args,
                 summary=m.one_line(f"Studio aracı çağrılıyor: {name}"),
+                subagent_id=sid,
             )
         )
-        await self.set_state(AgentState.running_tool, f"Studio aracı: {name}")
+        if sid is None:
+            await self.set_state(AgentState.running_tool, f"Studio aracı: {name}")
         if params.namespace is None and params.tool in self._tool_names:
             try:
                 result = await self._tools.call(params.tool, args)
@@ -572,10 +714,13 @@ class CodexSession:
             result = ToolResult(content=f"Unknown or not permitted tool: {name}", is_error=True)
         await self._emit(
             ToolResultEv(
-                call_id=params.call_id, output=truncate(result.content, m.OUTPUT_LIMIT), is_error=result.is_error
+                call_id=params.call_id,
+                output=truncate(result.content, m.OUTPUT_LIMIT),
+                is_error=result.is_error,
+                subagent_id=sid,
             )
         )
-        if self._active_turn is not None and self._approvals_waiting == 0:
+        if sid is None and self._active_turn is not None and self._approvals_waiting == 0:
             await self.set_state(AgentState.thinking)
         return p.DynamicToolCallResponse(
             content_items=[p.DynamicToolCallOutputText(text=result.content)], success=not result.is_error
@@ -608,6 +753,7 @@ class CodexSession:
             command=command,
             reason=params.reason,
         )
+        req = await self._for_thread(req, params.conversation_id)
         decision = await self._decide(req)
         verdict: Any = "approved" if decision.allow else {"denied": {"rejection": decision.reason or "Reddedildi"}}
         return p.ReviewDecisionResponse(decision=verdict).wire()
@@ -625,6 +771,7 @@ class CodexSession:
             paths=paths,
             reason=params.reason,
         )
+        req = await self._for_thread(req, params.conversation_id)
         if self._advisor:
             return p.ApplyPatchReviewDecisionResponse(decision={"denied": {"rejection": "advisor"}}).wire()
         decision = await self._decide(req)
@@ -668,6 +815,8 @@ class CodexSession:
             await self._emit(AgentErrorEv(message=error, code="process_exited"))
         status = "interrupted" if expected else "error"
         reason_text = "Oturum kapatıldı." if expected else error
+        for payload in self._subs.finish_all("interrupted" if expected else "error"):
+            await self._emit(payload)
         active = self._active_turn
         if active is not None:
             self._active_turn = None

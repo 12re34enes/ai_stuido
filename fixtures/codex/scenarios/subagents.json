@@ -1,0 +1,656 @@
+{
+ "version": "0.160.0",
+ "login": "chatgpt",
+ "threadId": "019a7a10-0000-7000-8000-00000000c001",
+ "model": "gpt-5.5",
+ "threads": [
+  {
+   "id": "019a7a10-5ab1-7000-8000-00000000c101",
+   "sessionId": "019a7a10-0000-7000-8000-00000000c001",
+   "forkedFromId": null,
+   "parentThreadId": "019a7a10-0000-7000-8000-00000000c001",
+   "agentNickname": "Galileo",
+   "agentRole": "explorer",
+   "preview": "",
+   "ephemeral": false,
+   "projectId": null,
+   "historyMode": "paginated",
+   "modelProvider": "openai",
+   "model": "gpt-5.5-mini",
+   "reasoningEffort": "low",
+   "createdAt": 1790000000,
+   "updatedAt": 1790000100,
+   "status": {
+    "type": "idle"
+   },
+   "path": "/Users/dev/.codex/sessions/2026/10/01/rollout-019a7a10-5ab1-7000-8000-00000000c101.jsonl",
+   "cwd": "/Users/dev/proj",
+   "cliVersion": "0.160.0",
+   "source": {
+    "subAgent": {
+     "thread_spawn": {
+      "parent_thread_id": "019a7a10-0000-7000-8000-00000000c001",
+      "depth": 1,
+      "agent_nickname": "Galileo",
+      "agent_role": "explorer",
+      "agent_path": null
+     }
+    }
+   },
+   "gitInfo": null,
+   "name": null,
+   "turns": []
+  },
+  {
+   "id": "019a7a10-5ab2-7000-8000-00000000c102",
+   "sessionId": "019a7a10-0000-7000-8000-00000000c001",
+   "forkedFromId": null,
+   "parentThreadId": "019a7a10-0000-7000-8000-00000000c001",
+   "agentNickname": "Ada",
+   "agentRole": "worker",
+   "preview": "",
+   "ephemeral": false,
+   "projectId": null,
+   "historyMode": "paginated",
+   "modelProvider": "openai",
+   "model": "gpt-5.5-mini",
+   "reasoningEffort": "low",
+   "createdAt": 1790000000,
+   "updatedAt": 1790000100,
+   "status": {
+    "type": "idle"
+   },
+   "path": "/Users/dev/.codex/sessions/2026/10/01/rollout-019a7a10-5ab2-7000-8000-00000000c102.jsonl",
+   "cwd": "/Users/dev/proj",
+   "cliVersion": "0.160.0",
+   "source": {
+    "subAgent": {
+     "thread_spawn": {
+      "parent_thread_id": "019a7a10-0000-7000-8000-00000000c001",
+      "depth": 1,
+      "agent_nickname": "Ada",
+      "agent_role": "worker",
+      "agent_path": null
+     }
+    }
+   },
+   "gitInfo": null,
+   "name": null,
+   "turns": []
+  },
+  {
+   "id": "019a7a10-5ab3-7000-8000-00000000c103",
+   "sessionId": "019a7a10-0000-7000-8000-00000000c001",
+   "forkedFromId": null,
+   "parentThreadId": "019a7a10-5ab1-7000-8000-00000000c101",
+   "agentNickname": "Kepler",
+   "agentRole": null,
+   "preview": "",
+   "ephemeral": false,
+   "projectId": null,
+   "historyMode": "paginated",
+   "modelProvider": "openai",
+   "model": "gpt-5.5-mini",
+   "reasoningEffort": "low",
+   "createdAt": 1790000000,
+   "updatedAt": 1790000100,
+   "status": {
+    "type": "idle"
+   },
+   "path": "/Users/dev/.codex/sessions/2026/10/01/rollout-019a7a10-5ab3-7000-8000-00000000c103.jsonl",
+   "cwd": "/Users/dev/proj",
+   "cliVersion": "0.160.0",
+   "source": {
+    "subAgent": {
+     "thread_spawn": {
+      "parent_thread_id": "019a7a10-5ab1-7000-8000-00000000c101",
+      "depth": 2,
+      "agent_nickname": "Kepler",
+      "agent_role": null,
+      "agent_path": null
+     }
+    }
+   },
+   "gitInfo": null,
+   "name": null,
+   "turns": []
+  }
+ ],
+ "turnScripts": [
+  [
+   {
+    "item": {
+     "type": "collabAgentToolCall",
+     "id": "call_spawn_1",
+     "tool": "spawnAgent",
+     "status": "inProgress",
+     "senderThreadId": "$THREAD",
+     "receiverThreadIds": [],
+     "prompt": "Depoyu incele ve test komutlarını bul",
+     "model": "gpt-5.5-mini",
+     "reasoningEffort": "low",
+     "agentsStates": {}
+    },
+    "phase": "started"
+   },
+   {
+    "notify": "thread/status/changed",
+    "params": {
+     "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+     "status": {
+      "type": "active",
+      "activeFlags": []
+     }
+    }
+   },
+   {
+    "notify": "turn/started",
+    "params": {
+     "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+     "turn": {
+      "id": "s1_turn",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "inProgress",
+      "error": null,
+      "startedAt": 1790000000,
+      "completedAt": null,
+      "durationMs": null
+     }
+    }
+   },
+   {
+    "item": {
+     "type": "collabAgentToolCall",
+     "id": "call_spawn_1",
+     "tool": "spawnAgent",
+     "status": "completed",
+     "senderThreadId": "$THREAD",
+     "receiverThreadIds": [
+      "019a7a10-5ab1-7000-8000-00000000c101"
+     ],
+     "prompt": "Depoyu incele ve test komutlarını bul",
+     "model": "gpt-5.5-mini",
+     "reasoningEffort": "low",
+     "agentsStates": {
+      "019a7a10-5ab1-7000-8000-00000000c101": {
+       "status": "pendingInit",
+       "message": null
+      }
+     }
+    },
+    "phase": "completed"
+   },
+   {
+    "item": {
+     "type": "collabAgentToolCall",
+     "id": "call_spawn_2",
+     "tool": "spawnAgent",
+     "status": "inProgress",
+     "senderThreadId": "$THREAD",
+     "receiverThreadIds": [],
+     "prompt": "README dosyasını güncelle",
+     "model": "gpt-5.5-mini",
+     "reasoningEffort": "low",
+     "agentsStates": {}
+    },
+    "phase": "started"
+   },
+   {
+    "item": {
+     "type": "collabAgentToolCall",
+     "id": "call_spawn_2",
+     "tool": "spawnAgent",
+     "status": "completed",
+     "senderThreadId": "$THREAD",
+     "receiverThreadIds": [
+      "019a7a10-5ab2-7000-8000-00000000c102"
+     ],
+     "prompt": "README dosyasını güncelle",
+     "model": "gpt-5.5-mini",
+     "reasoningEffort": "low",
+     "agentsStates": {
+      "019a7a10-5ab2-7000-8000-00000000c102": {
+       "status": "running",
+       "message": null
+      }
+     }
+    },
+    "phase": "completed"
+   },
+   {
+    "notify": "turn/started",
+    "params": {
+     "threadId": "019a7a10-5ab2-7000-8000-00000000c102",
+     "turn": {
+      "id": "s2_turn",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "inProgress",
+      "error": null,
+      "startedAt": 1790000000,
+      "completedAt": null,
+      "durationMs": null
+     }
+    }
+   },
+   {
+    "notify": "item/agentMessage/delta",
+    "params": {
+     "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+     "turnId": "s1_turn",
+     "itemId": "s1_msg0",
+     "delta": "Testleri arıyorum"
+    }
+   },
+   {
+    "item": {
+     "type": "commandExecution",
+     "id": "s1_cmd",
+     "pluginId": null,
+     "scriptPath": null,
+     "command": "/bin/zsh -lc 'npm test -- --list'",
+     "cwd": "$CWD",
+     "processId": null,
+     "source": "agent",
+     "status": "inProgress",
+     "commandActions": [
+      {
+       "type": "unknown",
+       "command": "npm test -- --list"
+      }
+     ],
+     "aggregatedOutput": null,
+     "exitCode": null,
+     "durationMs": null
+    },
+    "phase": "started",
+    "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+    "turnId": "s1_turn"
+   },
+   {
+    "approval": "command",
+    "params": {
+     "kind": "command",
+     "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+     "turnId": "s1_turn",
+     "itemId": "s1_cmd",
+     "startedAtMs": 3,
+     "environmentId": null,
+     "reason": "Test listesini görmek için",
+     "command": "/bin/zsh -lc 'npm test -- --list'",
+     "cwd": "$CWD",
+     "commandActions": [
+      {
+       "type": "unknown",
+       "command": "npm test -- --list"
+      }
+     ],
+     "availableDecisions": [
+      "accept",
+      "decline",
+      "cancel"
+     ]
+    },
+    "accept": [
+     {
+      "item": {
+       "type": "commandExecution",
+       "id": "s1_cmd",
+       "pluginId": null,
+       "scriptPath": null,
+       "command": "/bin/zsh -lc 'npm test -- --list'",
+       "cwd": "$CWD",
+       "processId": null,
+       "source": "agent",
+       "status": "completed",
+       "commandActions": [
+        {
+         "type": "unknown",
+         "command": "npm test -- --list"
+        }
+       ],
+       "aggregatedOutput": "a.test.ts\nb.test.ts\n",
+       "exitCode": 0,
+       "durationMs": 5
+      },
+      "phase": "completed",
+      "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+      "turnId": "s1_turn"
+     }
+    ],
+    "decline": [
+     {
+      "item": {
+       "type": "commandExecution",
+       "id": "s1_cmd",
+       "pluginId": null,
+       "scriptPath": null,
+       "command": "/bin/zsh -lc 'npm test -- --list'",
+       "cwd": "$CWD",
+       "processId": null,
+       "source": "agent",
+       "status": "declined",
+       "commandActions": [
+        {
+         "type": "unknown",
+         "command": "npm test -- --list"
+        }
+       ],
+       "aggregatedOutput": null,
+       "exitCode": null,
+       "durationMs": null
+      },
+      "phase": "completed",
+      "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+      "turnId": "s1_turn"
+     }
+    ]
+   },
+   {
+    "item": {
+     "type": "collabAgentToolCall",
+     "id": "call_spawn_3",
+     "tool": "spawnAgent",
+     "status": "inProgress",
+     "senderThreadId": "019a7a10-5ab1-7000-8000-00000000c101",
+     "receiverThreadIds": [],
+     "prompt": "package.json içindeki betikleri listele",
+     "model": "gpt-5.5-mini",
+     "reasoningEffort": "low",
+     "agentsStates": {}
+    },
+    "phase": "started",
+    "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+    "turnId": "s1_turn"
+   },
+   {
+    "notify": "turn/started",
+    "params": {
+     "threadId": "019a7a10-5ab3-7000-8000-00000000c103",
+     "turn": {
+      "id": "s3_turn",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "inProgress",
+      "error": null,
+      "startedAt": 1790000000,
+      "completedAt": null,
+      "durationMs": null
+     }
+    }
+   },
+   {
+    "item": {
+     "type": "collabAgentToolCall",
+     "id": "call_spawn_3",
+     "tool": "spawnAgent",
+     "status": "completed",
+     "senderThreadId": "019a7a10-5ab1-7000-8000-00000000c101",
+     "receiverThreadIds": [
+      "019a7a10-5ab3-7000-8000-00000000c103"
+     ],
+     "prompt": "package.json içindeki betikleri listele",
+     "model": "gpt-5.5-mini",
+     "reasoningEffort": "low",
+     "agentsStates": {
+      "019a7a10-5ab3-7000-8000-00000000c103": {
+       "status": "running",
+       "message": null
+      }
+     }
+    },
+    "phase": "completed",
+    "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+    "turnId": "s1_turn"
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "s3_msg",
+     "text": "test, lint, build",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed",
+    "threadId": "019a7a10-5ab3-7000-8000-00000000c103",
+    "turnId": "s3_turn"
+   },
+   {
+    "notify": "thread/tokenUsage/updated",
+    "params": {
+     "threadId": "019a7a10-5ab3-7000-8000-00000000c103",
+     "turnId": "s3_turn",
+     "tokenUsage": {
+      "total": {
+       "totalTokens": 450,
+       "inputTokens": 400,
+       "cachedInputTokens": 100,
+       "cacheWriteInputTokens": 0,
+       "outputTokens": 50,
+       "reasoningOutputTokens": 10
+      },
+      "last": {
+       "totalTokens": 450,
+       "inputTokens": 400,
+       "cachedInputTokens": 100,
+       "cacheWriteInputTokens": 0,
+       "outputTokens": 50,
+       "reasoningOutputTokens": 10
+      },
+      "modelContextWindow": 258400
+     }
+    }
+   },
+   {
+    "notify": "turn/completed",
+    "params": {
+     "threadId": "019a7a10-5ab3-7000-8000-00000000c103",
+     "turn": {
+      "id": "s3_turn",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "completed",
+      "error": null,
+      "startedAt": 1790000000,
+      "completedAt": 1790000050,
+      "durationMs": 1500
+     }
+    }
+   },
+   {
+    "notify": "thread/tokenUsage/updated",
+    "params": {
+     "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+     "turnId": "s1_turn",
+     "tokenUsage": {
+      "total": {
+       "totalTokens": 3200,
+       "inputTokens": 3000,
+       "cachedInputTokens": 1000,
+       "cacheWriteInputTokens": 0,
+       "outputTokens": 200,
+       "reasoningOutputTokens": 10
+      },
+      "last": {
+       "totalTokens": 3200,
+       "inputTokens": 3000,
+       "cachedInputTokens": 1000,
+       "cacheWriteInputTokens": 0,
+       "outputTokens": 200,
+       "reasoningOutputTokens": 10
+      },
+      "modelContextWindow": 258400
+     }
+    }
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "s1_msg",
+     "text": "İki test dosyası var: a.test.ts, b.test.ts",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed",
+    "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+    "turnId": "s1_turn"
+   },
+   {
+    "notify": "turn/completed",
+    "params": {
+     "threadId": "019a7a10-5ab1-7000-8000-00000000c101",
+     "turn": {
+      "id": "s1_turn",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "completed",
+      "error": null,
+      "startedAt": 1790000000,
+      "completedAt": 1790000050,
+      "durationMs": 1500
+     }
+    }
+   },
+   {
+    "notify": "turn/completed",
+    "params": {
+     "threadId": "019a7a10-5ab2-7000-8000-00000000c102",
+     "turn": {
+      "id": "s2_turn",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "failed",
+      "error": {
+       "message": "Model isteği başarısız oldu",
+       "codexErrorInfo": null,
+       "additionalDetails": null
+      },
+      "startedAt": 1790000000,
+      "completedAt": 1790000050,
+      "durationMs": 1500
+     }
+    }
+   },
+   {
+    "item": {
+     "type": "collabAgentToolCall",
+     "id": "call_wait",
+     "tool": "wait",
+     "status": "inProgress",
+     "senderThreadId": "$THREAD",
+     "receiverThreadIds": [
+      "019a7a10-5ab1-7000-8000-00000000c101",
+      "019a7a10-5ab2-7000-8000-00000000c102"
+     ],
+     "prompt": null,
+     "model": null,
+     "reasoningEffort": null,
+     "agentsStates": {}
+    },
+    "phase": "started"
+   },
+   {
+    "item": {
+     "type": "collabAgentToolCall",
+     "id": "call_wait",
+     "tool": "wait",
+     "status": "completed",
+     "senderThreadId": "$THREAD",
+     "receiverThreadIds": [
+      "019a7a10-5ab1-7000-8000-00000000c101",
+      "019a7a10-5ab2-7000-8000-00000000c102"
+     ],
+     "prompt": null,
+     "model": null,
+     "reasoningEffort": null,
+     "agentsStates": {
+      "019a7a10-5ab1-7000-8000-00000000c101": {
+       "status": "completed",
+       "message": "İki test dosyası var: a.test.ts, b.test.ts"
+      },
+      "019a7a10-5ab2-7000-8000-00000000c102": {
+       "status": "errored",
+       "message": "Model isteği başarısız oldu"
+      }
+     }
+    },
+    "phase": "completed"
+   },
+   {
+    "item": {
+     "type": "subAgentActivity",
+     "id": "call_v2",
+     "kind": "started",
+     "agentThreadId": "019a7a10-5ab4-7000-8000-00000000c104",
+     "agentPath": "/root/reviewer"
+    },
+    "phase": "completed"
+   },
+   {
+    "notify": "turn/started",
+    "params": {
+     "threadId": "019a7a10-5ab4-7000-8000-00000000c104",
+     "turn": {
+      "id": "s4_turn",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "inProgress",
+      "error": null,
+      "startedAt": 1790000000,
+      "completedAt": null,
+      "durationMs": null
+     }
+    }
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "s4_msg",
+     "text": "İnceleme bitti, sorun yok",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed",
+    "threadId": "019a7a10-5ab4-7000-8000-00000000c104",
+    "turnId": "s4_turn"
+   },
+   {
+    "notify": "turn/completed",
+    "params": {
+     "threadId": "019a7a10-5ab4-7000-8000-00000000c104",
+     "turn": {
+      "id": "s4_turn",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "completed",
+      "error": null,
+      "startedAt": 1790000000,
+      "completedAt": 1790000050,
+      "durationMs": 1500
+     }
+    }
+   },
+   {
+    "item": {
+     "type": "subAgentActivity",
+     "id": "subagent-completed-s4_turn",
+     "kind": "completed",
+     "agentThreadId": "019a7a10-5ab4-7000-8000-00000000c104",
+     "agentPath": "/root/reviewer"
+    },
+    "phase": "completed"
+   },
+   {
+    "item": {
+     "type": "agentMessage",
+     "id": "msg_final",
+     "text": "Alt ajanlar bitti.",
+     "phase": "final_answer",
+     "memoryCitation": null
+    },
+    "phase": "completed"
+   }
+  ]
+ ]
+}

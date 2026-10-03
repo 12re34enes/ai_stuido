@@ -1,0 +1,300 @@
+{
+ "version": "0.160.0",
+ "threads": [
+  {
+   "id": "019a7a10-0000-7000-8000-00000000d001",
+   "sessionId": "019a7a10-0000-7000-8000-00000000d001",
+   "forkedFromId": null,
+   "parentThreadId": null,
+   "agentNickname": null,
+   "agentRole": null,
+   "preview": "Testleri alt ajanlarla incele",
+   "ephemeral": false,
+   "projectId": null,
+   "historyMode": "paginated",
+   "modelProvider": "openai",
+   "model": "gpt-5.5",
+   "reasoningEffort": "low",
+   "createdAt": 1790000000,
+   "updatedAt": 1790000100,
+   "status": {
+    "type": "idle"
+   },
+   "path": "/Users/dev/.codex/sessions/2026/10/01/rollout-019a7a10-0000-7000-8000-00000000d001.jsonl",
+   "cwd": "/Users/dev/proj",
+   "cliVersion": "0.160.0",
+   "source": "cli",
+   "gitInfo": null,
+   "name": null,
+   "turns": []
+  },
+  {
+   "id": "019a7a10-5ab1-7000-8000-00000000d101",
+   "sessionId": "019a7a10-0000-7000-8000-00000000c001",
+   "forkedFromId": null,
+   "parentThreadId": "019a7a10-0000-7000-8000-00000000d001",
+   "agentNickname": "Galileo",
+   "agentRole": "explorer",
+   "preview": "",
+   "ephemeral": false,
+   "projectId": null,
+   "historyMode": "paginated",
+   "modelProvider": "openai",
+   "model": "gpt-5.5-mini",
+   "reasoningEffort": "low",
+   "createdAt": 1790000000,
+   "updatedAt": 1790000100,
+   "status": {
+    "type": "idle"
+   },
+   "path": "/Users/dev/.codex/sessions/2026/10/01/rollout-019a7a10-5ab1-7000-8000-00000000d101.jsonl",
+   "cwd": "/Users/dev/proj",
+   "cliVersion": "0.160.0",
+   "source": {
+    "subAgent": {
+     "thread_spawn": {
+      "parent_thread_id": "019a7a10-0000-7000-8000-00000000d001",
+      "depth": 1,
+      "agent_nickname": "Galileo",
+      "agent_role": "explorer",
+      "agent_path": null
+     }
+    }
+   },
+   "gitInfo": null,
+   "name": null,
+   "turns": []
+  },
+  {
+   "id": "019a7a10-5ab2-7000-8000-00000000d102",
+   "sessionId": "019a7a10-0000-7000-8000-00000000c001",
+   "forkedFromId": null,
+   "parentThreadId": "019a7a10-5ab1-7000-8000-00000000d101",
+   "agentNickname": "Kepler",
+   "agentRole": null,
+   "preview": "",
+   "ephemeral": false,
+   "projectId": null,
+   "historyMode": "paginated",
+   "modelProvider": "openai",
+   "model": "gpt-5.5-mini",
+   "reasoningEffort": "low",
+   "createdAt": 1790000000,
+   "updatedAt": 1790000100,
+   "status": {
+    "type": "idle"
+   },
+   "path": "/Users/dev/.codex/sessions/2026/10/01/rollout-019a7a10-5ab2-7000-8000-00000000d102.jsonl",
+   "cwd": "/Users/dev/proj",
+   "cliVersion": "0.160.0",
+   "source": {
+    "subAgent": {
+     "thread_spawn": {
+      "parent_thread_id": "019a7a10-5ab1-7000-8000-00000000d101",
+      "depth": 2,
+      "agent_nickname": "Kepler",
+      "agent_role": null,
+      "agent_path": null
+     }
+    }
+   },
+   "gitInfo": null,
+   "name": null,
+   "turns": []
+  }
+ ],
+ "turns": {
+  "019a7a10-0000-7000-8000-00000000d001": [
+   {
+    "id": "h_turn1",
+    "items": [
+     {
+      "type": "userMessage",
+      "id": "hu1",
+      "clientId": null,
+      "content": [
+       {
+        "type": "text",
+        "text": "Testleri alt ajanlarla incele",
+        "text_elements": []
+       }
+      ]
+     },
+     {
+      "type": "collabAgentToolCall",
+      "id": "h_spawn1",
+      "tool": "spawnAgent",
+      "status": "completed",
+      "senderThreadId": "019a7a10-0000-7000-8000-00000000d001",
+      "receiverThreadIds": [
+       "019a7a10-5ab1-7000-8000-00000000d101"
+      ],
+      "prompt": "Depoyu incele ve test komutlarını bul",
+      "model": "gpt-5.5-mini",
+      "reasoningEffort": "low",
+      "agentsStates": {
+       "019a7a10-5ab1-7000-8000-00000000d101": {
+        "status": "pendingInit",
+        "message": null
+       }
+      }
+     },
+     {
+      "type": "collabAgentToolCall",
+      "id": "h_spawn3",
+      "tool": "spawnAgent",
+      "status": "completed",
+      "senderThreadId": "019a7a10-0000-7000-8000-00000000d001",
+      "receiverThreadIds": [
+       "019a7a10-5ab3-7000-8000-00000000d103"
+      ],
+      "prompt": "Belgeleri tara",
+      "model": "gpt-5.5-mini",
+      "reasoningEffort": "low",
+      "agentsStates": {
+       "019a7a10-5ab3-7000-8000-00000000d103": {
+        "status": "running",
+        "message": null
+       }
+      }
+     },
+     {
+      "type": "collabAgentToolCall",
+      "id": "h_wait",
+      "tool": "wait",
+      "status": "completed",
+      "senderThreadId": "019a7a10-0000-7000-8000-00000000d001",
+      "receiverThreadIds": [
+       "019a7a10-5ab1-7000-8000-00000000d101"
+      ],
+      "prompt": null,
+      "model": null,
+      "reasoningEffort": null,
+      "agentsStates": {
+       "019a7a10-5ab1-7000-8000-00000000d101": {
+        "status": "completed",
+        "message": "İki test dosyası var"
+       }
+      }
+     },
+     {
+      "type": "agentMessage",
+      "id": "h_msg",
+      "text": "Bitti.",
+      "phase": "final_answer",
+      "memoryCitation": null
+     }
+    ],
+    "itemsView": "full",
+    "status": "completed",
+    "error": null,
+    "startedAt": 1790000000,
+    "completedAt": 1790000050,
+    "durationMs": 9000
+   }
+  ],
+  "019a7a10-5ab1-7000-8000-00000000d101": [
+   {
+    "id": "hs1_turn",
+    "items": [
+     {
+      "type": "userMessage",
+      "id": "hs1_u",
+      "clientId": null,
+      "content": [
+       {
+        "type": "text",
+        "text": "Depoyu incele ve test komutlarını bul",
+        "text_elements": []
+       }
+      ]
+     },
+     {
+      "type": "commandExecution",
+      "id": "hs1_cmd",
+      "pluginId": null,
+      "scriptPath": null,
+      "command": "/bin/zsh -lc 'npm test -- --list'",
+      "cwd": "/Users/dev/proj",
+      "processId": null,
+      "source": "agent",
+      "status": "completed",
+      "commandActions": [
+       {
+        "type": "unknown",
+        "command": "npm test -- --list"
+       }
+      ],
+      "aggregatedOutput": "a.test.ts\nb.test.ts\n",
+      "exitCode": 0,
+      "durationMs": 5
+     },
+     {
+      "type": "collabAgentToolCall",
+      "id": "hs1_spawn",
+      "tool": "spawnAgent",
+      "status": "completed",
+      "senderThreadId": "019a7a10-5ab1-7000-8000-00000000d101",
+      "receiverThreadIds": [
+       "019a7a10-5ab2-7000-8000-00000000d102"
+      ],
+      "prompt": "package.json içindeki betikleri listele",
+      "model": "gpt-5.5-mini",
+      "reasoningEffort": "low",
+      "agentsStates": {
+       "019a7a10-5ab2-7000-8000-00000000d102": {
+        "status": "running",
+        "message": null
+       }
+      }
+     },
+     {
+      "type": "agentMessage",
+      "id": "hs1_msg",
+      "text": "İki test dosyası var",
+      "phase": "final_answer",
+      "memoryCitation": null
+     }
+    ],
+    "itemsView": "full",
+    "status": "completed",
+    "error": null,
+    "startedAt": 1790000000,
+    "completedAt": 1790000050,
+    "durationMs": 4000
+   }
+  ],
+  "019a7a10-5ab2-7000-8000-00000000d102": [
+   {
+    "id": "hs2_turn",
+    "items": [
+     {
+      "type": "userMessage",
+      "id": "hs2_u",
+      "clientId": null,
+      "content": [
+       {
+        "type": "text",
+        "text": "package.json içindeki betikleri listele",
+        "text_elements": []
+       }
+      ]
+     },
+     {
+      "type": "agentMessage",
+      "id": "hs2_msg",
+      "text": "test, lint, build",
+      "phase": "final_answer",
+      "memoryCitation": null
+     }
+    ],
+    "itemsView": "full",
+    "status": "completed",
+    "error": null,
+    "startedAt": 1790000000,
+    "completedAt": 1790000050,
+    "durationMs": 800
+   }
+  ]
+ }
+}

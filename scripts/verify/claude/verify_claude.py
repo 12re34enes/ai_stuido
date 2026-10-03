@@ -1,12 +1,16 @@
 """Real-CLI verification of the Claude Code adapter (spec §21 M0). Run on the Mac with a
 logged-in ``claude``:
 
-    cd backend && uv run python ../scripts/verify/claude/verify_claude.py [--model haiku] [--extended]
+    cd backend && uv run python ../scripts/verify/claude/verify_claude.py [--model haiku] [--extended] [--subagents]
 
 It creates a throwaway git repo, drives the REAL adapter with a handful of tiny prompts on a
 cheap model and checks: health/login, the quota-free limit probe (get_usage), settings applied,
 streaming, the studio MCP tool, permission allow + deny round-trips, rate_limit_event capture,
 interrupt, session listing, history import and resume. ``--extended`` also checks steering.
+``--subagents`` asks the model to spawn one CLI-native subagent (Agent tool, cheap model) that
+runs a command needing permission, and checks SubagentStarted / tagged payloads (incl. forwarded
+subagent text) / the permission request's subagent_id / SubagentCompleted and the subagent in the
+imported history. It costs a little extra quota (one short subagent run).
 
 Raw stdin/stdout lines (masked) and the normalized events are written to
 ``scripts/verify/out/claude/<timestamp>/``. Exit code 0 = every check passed.
@@ -43,6 +47,8 @@ from aistudio.contracts.agents import (
     PermissionDecision,
     PermissionRequest,
     SessionSpec,
+    SubagentCompleted,
+    SubagentStarted,
     ToolCall,
     ToolResultEv,
     TurnCompleted,
@@ -391,6 +397,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="haiku", help="ucuz model (varsayılan: haiku)")
     parser.add_argument("--effort", default=None, help="isteğe bağlı effort seviyesi")
     parser.add_argument("--extended", action="store_true", help="steer (yönlendirme) kontrolünü de çalıştır")
+    parser.add_argument(
+        "--subagents",
+        action="store_true",
+        help="yerel alt ajan (Agent aracı) kontrolünü de çalıştır; biraz ek kota harcar",
+    )
     parser.add_argument("--keep-repo", action="store_true", help="geçici repoyu silme")
     parser.add_argument(
         "--binary", default=None, help="claude yolu (PATH'te değilse); boşlukla ayrılmış komut olabilir"
@@ -556,6 +567,51 @@ async def run_checks(args: argparse.Namespace, repo: Path) -> int:
 
         await report.run("Yönlendirme (steer)", steer, warn=True)
 
+    subagent_id: str | None = None
+    if args.subagents:
+
+        async def subagents() -> tuple[bool | None, str]:
+            nonlocal subagent_id
+            mark = sink.mark()
+            before = len(perms.requests)
+            result = await turn(
+                session,
+                'Use the Agent tool exactly once with subagent_type "general-purpose", model "haiku" and '
+                'run_in_background false. Give the subagent this task: "Run the shell command '
+                '`touch subagent.txt` with the Bash tool, then reply with the single word: ready". '
+                "When it has finished, reply with exactly what it reported.",
+            )
+            started = sink.since(mark, SubagentStarted)
+            if not started:
+                return False, f"SubagentStarted gelmedi (durum={result.status})"
+            subagent_id = started[0].subagent_id
+            # a background run (CLI default) ends later with a task_notification
+            deadline = time.monotonic() + TURN_TIMEOUT
+            while not any(d.subagent_id == subagent_id for d in sink.since(mark, SubagentCompleted)):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not await sink.wait_for(sink.mark(), SubagentCompleted, remaining):
+                    break
+            done = [d for d in sink.since(mark, SubagentCompleted) if d.subagent_id == subagent_id]
+            inside = [e for e in sink.events[mark:] if getattr(e, "subagent_id", None) == subagent_id]
+            calls = [e.tool for e in inside if isinstance(e, ToolCall)]
+            texts = [e for e in inside if isinstance(e, Message)]
+            asked = [r for r in perms.requests[before:] if r.subagent_id == subagent_id]
+            merged: dict[str, Any] = {}
+            for s in started:
+                if s.subagent_id == subagent_id:
+                    merged.update({k: v for k, v in s.model_dump().items() if v is not None})
+            ok = bool(done) and done[0].status == "success" and "Bash" in calls and bool(asked)
+            detail = (
+                f"ad={merged.get('name')}, model={merged.get('model')}, iç araçlar={calls}, "
+                f"iletilen metin={len(texts)}, alt ajan izin istekleri={len(asked)}, "
+                f"sonuç={done[0].status if done else 'yok'}, kullanım="
+                f"{(done[0].usage.input_tokens, done[0].usage.output_tokens) if done and done[0].usage else None}, "
+                f"dosya={(repo / 'subagent.txt').exists()}"
+            )
+            return ok, detail
+
+        await report.run("Yerel alt ajan (Agent aracı)", subagents)
+
     await session.close()
 
     # ---------------------------------------------------------------- listing / history / resume
@@ -573,7 +629,14 @@ async def run_checks(args: argparse.Namespace, repo: Path) -> int:
         payloads = await adapter.read_native_history(transport, native_id, cwd=str(repo))
         turns = [p for p in payloads if isinstance(p, TurnStarted)]
         done = [p for p in payloads if isinstance(p, TurnCompleted)]
-        return len(turns) >= 4, f"{len(payloads)} olay, {len(turns)} tur, {len(done)} tamamlanan"
+        detail = f"{len(payloads)} olay, {len(turns)} tur, {len(done)} tamamlanan"
+        ok = len(turns) >= 4
+        if subagent_id:  # replayed from <session>/subagents/agent-<id>.jsonl
+            subs = [p for p in payloads if isinstance(p, SubagentStarted) and p.subagent_id == subagent_id]
+            inner = [p for p in payloads if getattr(p, "subagent_id", None) == subagent_id]
+            ok = ok and bool(subs)
+            detail += f", alt ajan geçmişte={bool(subs)} ({len(inner)} olay)"
+        return ok, detail
 
     await report.run("Geçmişi içe aktarma (jsonl)", history)
 

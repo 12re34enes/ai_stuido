@@ -16,7 +16,7 @@ No model prompt was run while writing this. Items marked *(verify)* are checked 
 
 ```
 claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages
-       --permission-prompt-tool stdio --permission-mode default
+       --permission-prompt-tool stdio --permission-mode default --forward-subagent-text
        (--session-id <uuid> | --resume <id> [--fork-session --session-id <new uuid>])
        [--model m] [--effort low|medium|high|xhigh|max] [--append-system-prompt <memory>]
        [--add-dir d]... --mcp-config '{"mcpServers":{"studio":{"type":"sdk","name":"studio","alwaysLoad":true},...}}'
@@ -124,7 +124,65 @@ already bound per role and enforces its own approvals).
   description). Emitted when a window's rounded percent or reset moves.
 * `system/status` (`compacting`), `system/api_retry` (`attempt`, `max_retries`, `error`),
   `system/permission_denied` (auto-denials), `system/session_state_changed` (only with
-  `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS`), `keep_alive`, task/hook notifications — informational.
+  `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS`), `keep_alive`, hook notifications — informational.
+  `system/task_started|task_updated|task_notification` drive subagents (below). Other new
+  top-level types seen from 2.1.288 (`active_goal`, `autocompact_state`, …) are ignored.
+
+## Subagents (Agent / Task tool) → `agent.subagent.*`
+
+Implemented in `subagents.py` (`SubagentTracker`, used by the live normalizer and history
+replay). `subagent_id` = the spawning `tool_use` id.
+
+* **Spawn**: a `tool_use` named `Agent` (older name `Task`), input `{description, prompt,
+  subagent_type?, model?: sonnet|opus|haiku|fable, run_in_background?, name?, isolation?:
+  worktree|remote}`. → `ToolCall(kind=subagent)` + `SubagentStarted{subagent_id, parent_call_id,
+  parent_subagent_id (the frame's own parent_tool_use_id when spawned inside a subagent), name
+  (subagent_type), description, prompt (≤2000), model}`. `SubagentStarted` is re-sent (upsert)
+  when the name (`system/task_started.subagent_type`, `tool_use_result.agentType`) or the real
+  model id (first subagent frame's `message.model`, replacing an alias) becomes known, and when a
+  finished agent is resumed.
+* **Inside**: every frame carries `parent_tool_use_id` = spawner id, plus `subagent_type` and
+  `task_description`. Without `--forward-subagent-text` only `tool_use`/`tool_result` frames are
+  forwarded ("enough for a heartbeat counter", SDK docs); with it, text and thinking blocks too
+  (and subagent thinking is no longer forced to `display: omitted`). Partial `stream_event`s are
+  produced for the main thread only (`parent_tool_use_id: null` hard-coded in the CLI), so
+  subagent text arrives as whole `Message`s. Payloads get `subagent_id`; main state is untouched.
+  Token usage is summed per subagent API message (last frame per `message.id`) and reported in
+  `SubagentCompleted.usage` only: no separate `agent.usage` events, because the limits module
+  sums every `agent.usage` of a task (and counts each as a turn).
+* **Foreground end**: the spawner's `tool_result`; `tool_use_result` = `{status: "completed",
+  agentId, agentType, content: [{type: text, text}], resolvedModel, modelsUsed?, totalDurationMs,
+  totalTokens, totalToolUseCount, usage, toolStats?, prompt, worktreePath?}`. `usage` and
+  `totalTokens` are the **last API call only** (`findLast(assistant).message.usage`), so token
+  totals are summed from the forwarded frames; `totalTokens` → `context_used`. `is_error` →
+  `error` (`interrupted` for `[Request interrupted…]`). → `SubagentCompleted{status, result_text
+  (≤4000), usage}`.
+* **Background** (`run_in_background`; the Agent tool's documented default in 2.1.x): the
+  `tool_result` returns at once with `{status: "async_launched", isAsync, agentId, description,
+  prompt, outputFile, resolvedModel}` (`remote_launched` for `isolation: remote`). Frames keep
+  coming after the turn's `result`. The end is `system/task_notification {task_id (= agentId),
+  tool_use_id, status: completed|failed|stopped, summary, usage: {total_tokens, tool_uses,
+  duration_ms}, output_file}`; the CLI then starts a turn by itself (reported as a turn with empty
+  input). `task_updated.patch.status` (`killed`/`failed`/`completed`) also ends it.
+* **`system/task_started`** `{task_id, tool_use_id, description, subagent_type, is_backgrounded,
+  spawn_depth, task_type: "local_agent" | "local_bash" | …, prompt}`; only `local_agent` tasks
+  are subagents. Maps `task_id`/`agentId` → `tool_use_id`.
+* **Permissions**: `can_use_tool` from inside a subagent carries `agent_id` (= agentId; "mirrors
+  can_use_tool for host-side routing"). We resolve `PermissionRequest.subagent_id` from the
+  request's `tool_use_id` (calls are recorded with their subagent) or `agent_id`. With
+  `--permission-prompt-tool stdio` in `-p` mode background agents also ask through
+  `can_use_tool` (`shouldAvoidPermissionPrompts` is false when a prompt tool is set).
+* **Turn/process end**: foreground subagents still open when their turn's `result` arrives are
+  ended (`interrupted`, or `error` for a failed turn); every open subagent is ended when the
+  process exits.
+* **Transcripts**: `<session>/subagents/agent-<agentId>.jsonl` (all records `isSidechain: true`,
+  `agentId`, `sessionId` = parent) + `agent-<agentId>.meta.json` `{agentType, description,
+  toolUseId, spawnDepth, requestShape: foreground|background, worktreePath?, ...}`. History replay
+  splices a subagent's transcript right before the spawner's `tool_result` (records re-tagged
+  with `parent_tool_use_id`), recursing into nested spawns; background completions come from
+  `<task-notification>` blocks (`attachment.queued_command` with `commandMode:
+  "task-notification"` and `usage {totalTokens, toolUses, durationMs}`, or a `user` prompt with
+  `origin.kind: task-notification`). Agents never seen ending are reported `interrupted`.
 
 ## Turns, steering, interrupt
 
@@ -189,3 +247,10 @@ Returns `[]` on any failure (API-key logins have no plan limits). *(verify)*
 | Steering folds into the running turn from stdin in `-p` mode | assumed from result docs — *(verify `--extended`)* |
 | Exact `result` subtype after interrupt | assumed; we key on `terminal_reason` and our own flag — *(verify)* |
 | Permission rule path semantics (`Read(x)`, `Edit(x)`, `Write(x)`, `./x`) as generated | assumed from docs — *(verify: `list_permission_rules`)* |
+| `--forward-subagent-text` exists, accepted with our argv (initialize answered, no turn) | verified (help + ran locally) |
+| Subagent frames: `parent_tool_use_id`, `subagent_type`, `task_description`; no subagent `stream_event`s | verified (CLI source) |
+| Agent tool input/output (`completed` / `async_launched` / `remote_launched`), `usage` = last call | verified (SDK `sdk-tools.d.ts` + CLI source + real transcript) |
+| `task_started` / `task_updated` / `task_notification` shapes; `task_id` = agentId for local agents | verified (SDK types + CLI source + real transcript) |
+| `can_use_tool.agent_id` inside subagents; background agents still ask via stdio prompt tool | verified (CLI zod schema + source) — *(verify `--subagents`)* |
+| Transcript layout `subagents/agent-<id>.jsonl` + `.meta.json`, task-notification records | verified (real transcripts) |
+| Live end-to-end subagent stream with a real model (ordering, forwarded text) | assumed — *(verify `--subagents`)* |

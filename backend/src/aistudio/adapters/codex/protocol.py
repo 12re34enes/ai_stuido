@@ -248,6 +248,10 @@ class Thread(InModel):
     forked_from_id: str | None = None
     source: Any = None
     turns: list[Turn] = Field(default_factory=list)
+    # sub-agent threads only (AgentControl spawns)
+    parent_thread_id: str | None = None
+    agent_nickname: str | None = None
+    agent_role: str | None = None
 
 
 class ThreadStartResponse(InModel):
@@ -429,12 +433,31 @@ class WebSearchItem(InModel):
 
 
 class CollabAgentToolCallItem(InModel):
+    """Multi-agent v1 tool call (spawnAgent | sendInput | resumeAgent | wait | closeAgent) in the
+    sender's thread; ``agentsStates`` values are ``{status, message}`` (CollabAgentState)."""
+
     schema_name = "ThreadItem"
     schema_variant = "collabAgentToolCall"
     id: str
     tool: str
     status: str
     prompt: str | None = None
+    sender_thread_id: str | None = None
+    receiver_thread_ids: list[str] = Field(default_factory=list)
+    agents_states: dict[str, Any] = Field(default_factory=dict)
+    model: str | None = None
+    reasoning_effort: str | None = None
+
+
+class SubAgentActivityItem(InModel):
+    """Multi-agent v2 sub-agent lifecycle marker in the initiating thread."""
+
+    schema_name = "ThreadItem"
+    schema_variant = "subAgentActivity"
+    id: str
+    kind: str  # started | interacted | interrupted | completed
+    agent_thread_id: str
+    agent_path: str = ""
 
 
 class ImageViewItem(InModel):
@@ -455,6 +478,7 @@ ITEM_MODELS: dict[str, type[InModel]] = {
     "dynamicToolCall": DynamicToolCallItem,
     "webSearch": WebSearchItem,
     "collabAgentToolCall": CollabAgentToolCallItem,
+    "subAgentActivity": SubAgentActivityItem,
     "imageView": ImageViewItem,
 }
 

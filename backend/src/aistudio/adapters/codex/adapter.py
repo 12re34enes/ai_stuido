@@ -69,6 +69,7 @@ PROBE_TIMEOUT = 30.0
 PAGE_SIZE = 100
 TURN_PAGE_SIZE = 50
 MAX_HISTORY_TURNS = 5000
+MAX_HISTORY_SUBAGENTS = 64  # sub-agent threads read for one history import
 
 
 class CodexAdapter:
@@ -277,36 +278,58 @@ class CodexAdapter:
     ) -> list[AgentEventPayload]:
         try:
             async with self._probe(transport) as conn:
-                raw = await conn.request(
-                    "thread/read",
-                    p.ThreadReadParams(thread_id=native_id, include_turns=False).wire(),
-                    timeout=RPC_TIMEOUT,
-                )
-                thread = p.ThreadReadResponse.model_validate(raw).thread
-                turns: list[p.Turn] = []
-                cursor: str | None = None
-                while len(turns) < MAX_HISTORY_TURNS:
-                    params = p.ThreadTurnsListParams(
-                        thread_id=native_id,
-                        cursor=cursor,
-                        limit=TURN_PAGE_SIZE,
-                        sort_direction="asc",
-                        items_view="full",
-                    )
-                    page = p.ThreadTurnsListResponse.model_validate(
-                        await conn.request("thread/turns/list", params.wire(), timeout=RPC_TIMEOUT)
-                    )
-                    turns.extend(page.data)
-                    cursor = page.next_cursor
-                    if not cursor or not page.data:
-                        break
+                thread = await self._read_thread(conn, native_id)
+                turns = await self._read_turns(conn, native_id)
+                subthreads = await self._read_subthreads(conn, turns)
         except RpcError as e:
             raise NotFound(f"Codex oturumu okunamadı ({native_id}): {e.message}") from e
         except StudioError:
             raise
         except Exception as e:
             raise Unavailable(f"Codex oturum geçmişi okunamadı: {_error_text(e)}") from e
-        return m.history_payloads(thread, turns)
+        return m.history_payloads(thread, turns, subthreads)
+
+    async def _read_thread(self, conn: RpcConnection, thread_id: str) -> p.Thread:
+        raw = await conn.request(
+            "thread/read", p.ThreadReadParams(thread_id=thread_id, include_turns=False).wire(), timeout=RPC_TIMEOUT
+        )
+        return p.ThreadReadResponse.model_validate(raw).thread
+
+    async def _read_turns(self, conn: RpcConnection, thread_id: str) -> list[p.Turn]:
+        turns: list[p.Turn] = []
+        cursor: str | None = None
+        while len(turns) < MAX_HISTORY_TURNS:
+            params = p.ThreadTurnsListParams(
+                thread_id=thread_id, cursor=cursor, limit=TURN_PAGE_SIZE, sort_direction="asc", items_view="full"
+            )
+            page = p.ThreadTurnsListResponse.model_validate(
+                await conn.request("thread/turns/list", params.wire(), timeout=RPC_TIMEOUT)
+            )
+            turns.extend(page.data)
+            cursor = page.next_cursor
+            if not cursor or not page.data:
+                break
+        return turns
+
+    async def _read_subthreads(self, conn: RpcConnection, turns: list[p.Turn]) -> dict[str, m.SubThreadHistory]:
+        """Sub-agent threads spawned in ``turns`` (and below them), best effort: a sub-agent
+        whose rollout cannot be read still appears from the parent's collab items."""
+        out: dict[str, m.SubThreadHistory] = {}
+        queue = m.subagent_thread_ids(turns)
+        while queue and len(out) < MAX_HISTORY_SUBAGENTS:
+            tid = queue.pop(0)
+            if tid in out:
+                continue
+            try:
+                sub_thread = await self._read_thread(conn, tid)
+                sub_turns = await self._read_turns(conn, tid)
+            except (RpcError, ValueError) as e:
+                log.info("codex: sub-agent thread %s not readable: %s", tid, e)
+                out[tid] = m.SubThreadHistory(thread=None)
+                continue
+            out[tid] = m.SubThreadHistory(thread=sub_thread, turns=sub_turns)
+            queue += [t for t in m.subagent_thread_ids(sub_turns) if t not in out]
+        return out
 
     async def read_limits(self, transport: Transport) -> list[LimitWindow]:
         """``account/rateLimits/read`` on a short-lived app-server; costs no quota."""

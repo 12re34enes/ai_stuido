@@ -2,9 +2,11 @@
 
 Every normalized payload is written to the event log under ``PAYLOAD_EVENT_TYPE`` (deltas are
 published ephemerally), with the session's workspace/task/run/session ids and actor
-``agent:<session_id>``. The session row follows along (state, native id, model, last usage) and
-limit observations are forwarded to the ``LimitService``. A failing sink never breaks the
-adapter: errors are logged.
+``agent:<session_id>``. The session row follows along (state, native id, model, last usage),
+CLI-native subagent payloads update the :class:`SubagentIndex` (they never touch the session's
+state or ``last_usage``) and limit observations are forwarded to the ``LimitService``. Every
+payload - subagent ones included - counts as activity for the stall watchdog. A failing sink
+never breaks the adapter: errors are logged.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from pydantic import BaseModel
 
 from aistudio.agents.live import LiveSession
 from aistudio.agents.sessions import SessionRepo
+from aistudio.agents.subagents import SubagentIndex, subagent_of
 from aistudio.contracts.agents import (
     EPHEMERAL_PAYLOADS,
     PAYLOAD_EVENT_TYPE,
@@ -54,11 +57,19 @@ def payload_severity(payload: BaseModel, *, closing: bool = False) -> Severity:
 class SessionSink:
     """:class:`aistudio.contracts.agents.AgentEventSink` for one live session."""
 
-    def __init__(self, ctx: AppContext, repo: SessionRepo, live: LiveSession, on_ended: EndedCallback) -> None:
+    def __init__(
+        self,
+        ctx: AppContext,
+        repo: SessionRepo,
+        live: LiveSession,
+        on_ended: EndedCallback,
+        subagents: SubagentIndex | None = None,
+    ) -> None:
         self._ctx = ctx
         self._repo = repo
         self._live = live
         self._on_ended = on_ended
+        self._subagents = subagents
 
     async def emit(self, payload: AgentEventPayload) -> None:
         try:
@@ -91,6 +102,15 @@ class SessionSink:
         await self._ctx.events.append(
             etype, data, severity=payload_severity(payload, closing=live.closing), actor=live.actor, **live.ids()
         )
+        if self._subagents is not None:
+            try:
+                if subagent_of(payload) is not None:
+                    await self._subagents.apply(live.id, payload)
+                elif isinstance(payload, SessionEnded):
+                    await self._subagents.end_session(live.id)
+                    self._subagents.forget(live.id)
+            except Exception:
+                log.exception("subagent index update failed for session %s", live.id)
         changes = self._apply(payload)
         if "state" in changes and not isinstance(payload, StatusChanged):
             # State moved implicitly (turn started/completed, session ended): publish it too, so
@@ -133,7 +153,8 @@ class SessionSink:
             if payload.usage is not None:
                 changes["last_usage"] = payload.usage
         elif isinstance(payload, Usage):
-            changes["last_usage"] = payload
+            if payload.subagent_id is None:  # subagent usage lives in the subagent index
+                changes["last_usage"] = payload
         elif isinstance(payload, SessionEnded):
             live.ended = True
             graceful = payload.reason in ("completed", "closed") or live.closing

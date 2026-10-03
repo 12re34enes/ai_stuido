@@ -6,13 +6,15 @@ import json
 import os
 import posixpath
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from aistudio.adapters.codex import protocol as p
+from aistudio.adapters.codex.subagents import CodexSubagents
 from aistudio.contracts.agents import (
     AgentEventPayload,
     FileChanged,
@@ -255,6 +257,56 @@ def file_changes_summary(changes: list[p.FileUpdateChange], cwd: str | None, *, 
     return f"{path} dosyasını düzenlemek istiyor" if request else f"{path} düzenleniyor"
 
 
+_COLLAB_SUMMARY = {
+    "spawnAgent": "Alt ajan başlatılıyor",
+    "sendInput": "Alt ajana mesaj gönderiliyor",
+    "sendMessage": "Alt ajana mesaj gönderiliyor",
+    "followupTask": "Alt ajana ek görev veriliyor",
+    "resumeAgent": "Alt ajan sürdürülüyor",
+    "wait": "Alt ajanlar bekleniyor",
+    "closeAgent": "Alt ajan kapatılıyor",
+    "interruptAgent": "Alt ajan durduruluyor",
+    "listAgents": "Alt ajanlar listeleniyor",
+}
+_AGENT_STATE_TR = {
+    "pendingInit": "başlatılıyor",
+    "running": "çalışıyor",
+    "interrupted": "durduruldu",
+    "completed": "tamamlandı",
+    "errored": "hata verdi",
+    "shutdown": "kapatıldı",
+    "notFound": "bulunamadı",
+}
+
+
+def collab_summary(item: p.CollabAgentToolCallItem) -> str:
+    base = _COLLAB_SUMMARY.get(item.tool, f"Alt ajan: {item.tool}")
+    if item.tool == "spawnAgent" and item.prompt:
+        return one_line(f"{base}: {item.prompt}")
+    return one_line(base)
+
+
+def collab_output(item: p.CollabAgentToolCallItem) -> str:
+    """Readable tool output: one line per target agent (status + final message)."""
+    lines: list[str] = []
+    for tid, state in (item.agents_states or {}).items():
+        if not isinstance(state, dict):
+            continue
+        status = _AGENT_STATE_TR.get(str(state.get("status")), str(state.get("status")))
+        message = state.get("message")
+        lines.append(f"{tid}: {status}" + (f"\n{message}" if isinstance(message, str) and message else ""))
+    if not lines and item.receiver_thread_ids:
+        lines = list(item.receiver_thread_ids)
+    return "\n".join(lines)
+
+
+def tag[T: BaseModel](payload: T, subagent_id: str | None) -> T:
+    """Mark a payload as produced inside the given sub-agent (no-op for the main thread)."""
+    if subagent_id is None or "subagent_id" not in type(payload).model_fields:
+        return payload
+    return payload.model_copy(update={"subagent_id": subagent_id})
+
+
 def web_summary(item: p.WebSearchItem) -> str:
     action = item.action or {}
     kind = action.get("type")
@@ -313,12 +365,19 @@ def tool_call_for(item: p.InModel, cwd: str | None) -> ToolCall | None:
             summary=web_summary(item),
         )
     if isinstance(item, p.CollabAgentToolCallItem):
+        tool_input: dict[str, Any] = {}
+        if item.prompt:
+            tool_input["prompt"] = truncate(item.prompt, 4000)
+        if item.receiver_thread_ids:
+            tool_input["receivers"] = list(item.receiver_thread_ids)
+        if item.model:
+            tool_input["model"] = item.model
         return ToolCall(
             call_id=item.id,
             tool=f"collab__{item.tool}",
             kind=ToolKind.subagent,
-            input={"prompt": item.prompt} if item.prompt else {},
-            summary=one_line(f"Alt ajan: {item.tool}"),
+            input=tool_input,
+            summary=collab_summary(item),
         )
     if isinstance(item, p.ImageViewItem):
         return ToolCall(
@@ -377,7 +436,11 @@ def tool_result_for(item: p.InModel, cwd: str | None, *, streamed_output: str = 
     if isinstance(item, p.WebSearchItem):
         return [ToolResultEv(call_id=item.id, output=truncate(item.query or "", OUTPUT_LIMIT))]
     if isinstance(item, p.CollabAgentToolCallItem):
-        return [ToolResultEv(call_id=item.id, output="", is_error=item.status == "failed")]
+        return [
+            ToolResultEv(
+                call_id=item.id, output=truncate(collab_output(item), OUTPUT_LIMIT), is_error=item.status == "failed"
+            )
+        ]
     if isinstance(item, p.ImageViewItem):
         return [ToolResultEv(call_id=item.id, output="")]
     return []
@@ -652,9 +715,110 @@ def turn_status(turn: p.Turn) -> str:
     return TURN_STATUS.get(turn.status, "error")
 
 
-def history_payloads(thread: p.Thread, turns: list[p.Turn]) -> list[AgentEventPayload]:
-    """Replayable normalized payloads for an existing thread (no deltas, no status changes)."""
+@dataclass
+class SubThreadHistory:
+    """A sub-agent thread read for history import (``thread/read`` + ``thread/turns/list``)."""
+
+    thread: p.Thread | None
+    turns: list[p.Turn] = field(default_factory=list)
+
+
+def subagent_thread_ids(turns: Iterable[p.Turn]) -> list[str]:
+    """Sub-agent threads spawned in these turns (collab spawns and v2 activity markers)."""
+    seen: dict[str, None] = {}
+    for turn in turns:
+        for raw in turn.items:
+            if not isinstance(raw, dict):
+                continue
+            item = parse_item(raw)
+            if isinstance(item, p.CollabAgentToolCallItem) and item.tool == "spawnAgent":
+                for tid in item.receiver_thread_ids:
+                    seen.setdefault(tid, None)
+            elif isinstance(item, p.SubAgentActivityItem) and item.kind == "started":
+                seen.setdefault(item.agent_thread_id, None)
+    return list(seen)
+
+
+class _HistoryReplay:
+    def __init__(self, thread: p.Thread, subthreads: Mapping[str, SubThreadHistory]) -> None:
+        self.cwd = thread.cwd
+        self.subs = CodexSubagents(thread.id)
+        self.subthreads = subthreads
+        self.replayed: set[str] = set()
+
+    def items(
+        self, items: list[dict[str, Any]], sid: str | None, *, skip: dict[str, Any] | None = None
+    ) -> tuple[list[AgentEventPayload], str | None, str | None]:
+        """Payloads of finished items (+ final / last agent message) of one turn."""
+        out: list[AgentEventPayload] = []
+        final_text: str | None = None
+        last_text: str | None = None
+        thread_id = sid or self.subs.main_thread_id
+        for raw in items:
+            if raw is skip:
+                continue
+            item = parse_item(raw)
+            if isinstance(item, p.UserMessageItem):
+                out.append(tag(Message(message_id=item.id, role="user", text=user_input_text(item.content)), sid))
+            elif isinstance(item, p.AgentMessageItem):
+                out.append(tag(Message(message_id=item.id, text=item.text), sid))
+                last_text = item.text
+                if item.phase == "final_answer":
+                    final_text = item.text
+                if sid:
+                    self.subs.note_text(sid, item.text)
+            elif isinstance(item, p.ReasoningItem):
+                text = reasoning_text(item)
+                if text:
+                    out.append(tag(Thinking(message_id=item.id, text=text), sid))
+            elif isinstance(item, p.PlanItem):
+                out.append(tag(Thinking(message_id=item.id, text=item.text), sid))
+            elif isinstance(item, p.SubAgentActivityItem):
+                out += self.subs.activity(item, thread_id)
+                if item.kind == "started":
+                    out += self.thread(item.agent_thread_id)
+            elif item is not None:
+                call = tool_call_for(item, self.cwd)
+                if call is not None:
+                    out.append(tag(call, sid))
+                    out.extend(tag(x, sid) for x in tool_result_for(item, self.cwd))
+                if isinstance(item, p.CollabAgentToolCallItem):
+                    if item.tool == "spawnAgent":
+                        self.subs.collab_started(item, thread_id)
+                    out += self.subs.collab_completed(item, thread_id)
+                    if item.tool == "spawnAgent":
+                        for tid in item.receiver_thread_ids:
+                            out += self.thread(tid)
+        return out, final_text, last_text
+
+    def thread(self, thread_id: str) -> list[AgentEventPayload]:
+        """A sub-agent thread's own turns, tagged with its id (nested spawns recurse)."""
+        hist = self.subthreads.get(thread_id)
+        if hist is None or thread_id in self.replayed:
+            return []
+        self.replayed.add(thread_id)
+        out: list[AgentEventPayload] = []
+        if hist.thread is not None:
+            out += self.subs.enrich(thread_id, hist.thread)
+        for index, turn in enumerate(hist.turns):
+            out += self.subs.turn_started(thread_id)
+            items = [i for i in turn.items if isinstance(i, dict)]
+            prompt = next((i for i in items if i.get("type") == "userMessage"), None) if index == 0 else None
+            payloads, final_text, last_text = self.items(items, thread_id, skip=prompt)
+            out += payloads
+            if turn.status != "inProgress":
+                out += self.subs.turn_completed(thread_id, turn.status, final_text or last_text)
+        return out
+
+
+def history_payloads(
+    thread: p.Thread, turns: list[p.Turn], subthreads: Mapping[str, SubThreadHistory] | None = None
+) -> list[AgentEventPayload]:
+    """Replayable normalized payloads for an existing thread (no deltas, no status changes).
+    Sub-agents spawned in it become SubagentStarted / tagged payloads / SubagentCompleted; their
+    own turns are included when ``subthreads`` has them."""
     cwd = thread.cwd
+    replay = _HistoryReplay(thread, subthreads or {})
     out: list[AgentEventPayload] = [
         SessionStarted(native_id=thread.id, model=thread.model, cwd=cwd, cli_version=thread.cli_version)
     ]
@@ -663,30 +827,8 @@ def history_payloads(thread: p.Thread, turns: list[p.Turn]) -> list[AgentEventPa
         first_user = next((i for i in items if i.get("type") == "userMessage"), None)
         input_text = user_input_text(first_user.get("content") or []) if first_user else ""
         out.append(TurnStarted(turn_id=turn.id, input=input_text))
-        final_text: str | None = None
-        last_text: str | None = None
-        for raw in items:
-            if raw is first_user:
-                continue
-            item = parse_item(raw)
-            if isinstance(item, p.UserMessageItem):
-                out.append(Message(message_id=item.id, role="user", text=user_input_text(item.content)))
-            elif isinstance(item, p.AgentMessageItem):
-                out.append(Message(message_id=item.id, text=item.text))
-                last_text = item.text
-                if item.phase == "final_answer":
-                    final_text = item.text
-            elif isinstance(item, p.ReasoningItem):
-                text = reasoning_text(item)
-                if text:
-                    out.append(Thinking(message_id=item.id, text=text))
-            elif isinstance(item, p.PlanItem):
-                out.append(Thinking(message_id=item.id, text=item.text))
-            elif item is not None:
-                call = tool_call_for(item, cwd)
-                if call is not None:
-                    out.append(call)
-                    out.extend(tool_result_for(item, cwd))
+        payloads, final_text, last_text = replay.items(items, None, skip=first_user)
+        out += payloads
         status = turn_status(turn)
         out.append(
             TurnCompleted(
@@ -697,6 +839,7 @@ def history_payloads(thread: p.Thread, turns: list[p.Turn]) -> list[AgentEventPa
                 error=turn.error.message if turn.error else None,
             )
         )
+    out += replay.subs.finish_all("interrupted")  # their end was never recorded
     return out
 
 

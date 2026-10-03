@@ -3,7 +3,9 @@ the normalized payloads of ``contracts/agents.py``.
 
 The normalizer is stateful per session: it remembers tool calls (to attach file changes to the
 right tool result), the partially streamed content blocks (to give a streamed block and its final
-assistant frame the same ``message_id``) and the latest context size.
+assistant frame the same ``message_id``), the latest context size and the CLI-native subagents
+(``SubagentTracker``): frames with ``parent_tool_use_id`` become payloads tagged with
+``subagent_id`` and never change the main thread's state.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from aistudio.adapters.claude.protocol import as_dict, as_float, as_int, as_list, as_str
+from aistudio.adapters.claude.subagents import SUBAGENT_TOOLS, SubagentTracker
 from aistudio.adapters.claude.toolinfo import EDIT_TOOLS, rel_path, tool_kind, tool_summary
 from aistudio.contracts.agents import (
     AgentErrorEv,
@@ -33,6 +36,7 @@ from aistudio.core.text import truncate
 TOOL_OUTPUT_LIMIT = 64 * 1024
 DIFF_LIMIT = 64 * 1024
 _STREAM_MEMORY = 8  # message ids whose streamed blocks we remember
+_BLOCK_MEMORY = 256  # message ids whose used block indexes we remember (parallel subagents interleave)
 _EXIT_CODE_RE = re.compile(r"Exit code (-?\d+)")
 
 # Turkish texts for the CLI's assistant-message error codes.
@@ -228,6 +232,7 @@ class ClaudeNormalizer:
         self._consumed: OrderedDict[str, set[int]] = OrderedDict()  # msg id -> block indexes used
         self._stream_msg: str | None = None
         self._prompt_tokens: int | None = None  # context of the streaming call before output
+        self.subagents = SubagentTracker()
 
     @property
     def pending_main_tools(self) -> int:
@@ -245,7 +250,9 @@ class ClaudeNormalizer:
 
     def stream_event(self, msg: dict[str, Any]) -> Normalized:
         if msg.get("parent_tool_use_id"):
-            return Normalized()  # subagent token stream: not shown
+            # The CLI streams partial events for the main thread only (verified in 2.1.288);
+            # subagent text arrives as complete frames (--forward-subagent-text).
+            return Normalized()
         event = as_dict(msg.get("event"))
         etype = as_str(event.get("type"))
         out = Normalized()
@@ -301,7 +308,7 @@ class ClaudeNormalizer:
         consumed = self._consumed.get(msg_id)
         if consumed is None:
             consumed = self._consumed[msg_id] = set()
-            while len(self._consumed) > _STREAM_MEMORY * 4:
+            while len(self._consumed) > _BLOCK_MEMORY:
                 self._consumed.popitem(last=False)
         return consumed
 
@@ -325,11 +332,14 @@ class ClaudeNormalizer:
     # ------------------------------------------------------------------ complete frames
 
     def assistant(self, msg: dict[str, Any]) -> Normalized:
-        main = not msg.get("parent_tool_use_id")
+        parent = as_str(msg.get("parent_tool_use_id"))
+        main = not parent
         message = as_dict(msg.get("message"))
         msg_id = as_str(message.get("id")) or as_str(msg.get("uuid")) or "msg"
         model = as_str(message.get("model"))
         out = Normalized()
+        if parent:
+            out.payloads += self.subagents.frame(parent, msg, assistant=True)
         if main and model and not model.startswith("<"):
             self.model = model
         if main and msg_id != self._stream_msg:
@@ -338,9 +348,10 @@ class ClaudeNormalizer:
             if ctx:
                 self.context_used = ctx
         error = as_str(msg.get("error"))
-        if error and main:
-            out.payloads.append(api_error_event(error, content_text(message.get("content")) or None))
-            return out
+        if error:
+            if main:
+                out.payloads.append(api_error_event(error, content_text(message.get("content")) or None))
+            return out  # inside a subagent: surfaces as the subagent's failed result
         for raw in as_list(message.get("content")):
             block = as_dict(raw)
             btype = as_str(block.get("type")) or ""
@@ -349,43 +360,56 @@ class ClaudeNormalizer:
             else:
                 continue
             block_id = f"{msg_id}:{index}"
-            if btype == "text" and main:
+            if btype == "text":
                 text = as_str(block.get("text")) or ""
                 if text.strip():
-                    out.payloads.append(Message(message_id=block_id, role="assistant", text=text))
-            elif btype == "thinking" and main:
+                    out.payloads.append(Message(message_id=block_id, role="assistant", text=text, subagent_id=parent))
+                    if parent:
+                        self.subagents.note_text(parent, text)
+            elif btype == "thinking":
                 text = as_str(block.get("thinking")) or ""
                 if text.strip():
-                    out.payloads.append(Thinking(message_id=block_id, text=text))
+                    out.payloads.append(Thinking(message_id=block_id, text=text, subagent_id=parent))
             elif btype == "tool_use":
-                call = self.tool_call(block, main=main)
+                call = self.tool_call(block, main=main, subagent_id=parent)
                 if call is not None:
                     out.payloads.append(call)
+                    if call.tool in SUBAGENT_TOOLS:
+                        out.payloads += self.subagents.spawned(block, parent=parent)
                     if main:
                         out.state = AgentState.running_tool
                         out.detail = call.summary
         return out
 
-    def tool_call(self, block: dict[str, Any], *, main: bool) -> ToolCall | None:
+    def tool_call(self, block: dict[str, Any], *, main: bool, subagent_id: str | None = None) -> ToolCall | None:
         call_id = as_str(block.get("id"))
         name = as_str(block.get("name"))
         if not call_id or not name:
             return None
         args = as_dict(block.get("input"))
         self._calls[call_id] = _Call(name=name, args=args, main=main)
+        self.subagents.note_call(call_id, subagent_id)
         if main:
             self._pending_main.add(call_id)
         return ToolCall(
-            call_id=call_id, tool=name, kind=tool_kind(name), input=args, summary=tool_summary(name, args, self.cwd)
+            call_id=call_id,
+            tool=name,
+            kind=tool_kind(name),
+            input=args,
+            summary=tool_summary(name, args, self.cwd),
+            subagent_id=subagent_id,
         )
 
     def user(self, msg: dict[str, Any], *, tool_use_result: Any = None) -> Normalized:
         """Tool results (and the file changes they imply). Plain user text is not echoed."""
-        main = not msg.get("parent_tool_use_id")
+        parent = as_str(msg.get("parent_tool_use_id"))
+        main = not parent
         message = as_dict(msg.get("message"))
         content = message.get("content")
         out = Normalized()
         results = [as_dict(b) for b in as_list(content) if as_dict(b).get("type") == "tool_result"]
+        if parent and results:
+            out.payloads += self.subagents.frame(parent, msg, assistant=False)
         structured = tool_use_result if tool_use_result is not None else msg.get("tool_use_result")
         for block in results:
             call_id = as_str(block.get("tool_use_id"))
@@ -395,20 +419,21 @@ class ClaudeNormalizer:
             output = content_text(block.get("content"))
             call = self._calls.get(call_id)
             name = call.name if call else ""
+            single = structured if len(results) == 1 else None
             out.payloads.append(
                 ToolResultEv(
                     call_id=call_id,
                     output=truncate(output, TOOL_OUTPUT_LIMIT),
                     is_error=is_error,
                     exit_code=exit_code_of(name, output, is_error),
+                    subagent_id=parent,
                 )
             )
             if call is not None:
-                change = file_change(
-                    call.name, call.args, structured if len(results) == 1 else None, self.cwd, is_error=is_error
-                )
+                change = file_change(call.name, call.args, single, self.cwd, is_error=is_error)
                 if change is not None:
-                    out.payloads.append(change)
+                    out.payloads.append(change.model_copy(update={"subagent_id": parent}) if parent else change)
+            out.payloads += self.subagents.tool_result(call_id, is_error=is_error, output=output, structured=single)
             self._pending_main.discard(call_id)
         if results and main and not self._pending_main:
             out.state = AgentState.thinking

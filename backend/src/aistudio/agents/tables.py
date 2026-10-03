@@ -59,3 +59,27 @@ agents_sessions = sa.Table(
     sa.Index("ix_agents_sessions_task", "task_id"),
     sa.Index("ix_agents_sessions_native", "provider", "native_id"),
 )
+
+# CLI-native subagents of a session (Claude Agent/Task tool, Codex sub-agent threads), built from
+# the agent.subagent.* events and the payloads tagged with subagent_id (agents/subagents.py).
+agents_subagents = sa.Table(
+    "agents_subagents",
+    metadata,
+    sa.Column("session_id", sa.String(40), primary_key=True),
+    sa.Column("subagent_id", sa.String(200), primary_key=True),
+    sa.Column("parent_subagent_id", sa.String(200)),
+    sa.Column("parent_call_id", sa.String(200)),
+    sa.Column("name", sa.String(200)),
+    sa.Column("description", sa.Text),
+    sa.Column("prompt", sa.Text),
+    sa.Column("status", sa.String(16), nullable=False),  # running | success | error | interrupted
+    sa.Column("model", sa.String(120)),
+    sa.Column("started_at", UTCDateTime, nullable=False),
+    sa.Column("finished_at", UTCDateTime),
+    sa.Column("updated_at", UTCDateTime, nullable=False),
+    sa.Column("input_tokens", sa.Integer, nullable=False, default=0),
+    sa.Column("output_tokens", sa.Integer, nullable=False, default=0),
+    sa.Column("tool_calls", sa.Integer, nullable=False, default=0),
+    sa.Column("last_text", sa.Text),
+    sa.Index("ix_agents_subagents_session", "session_id", "started_at"),
+)

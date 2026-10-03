@@ -21,7 +21,8 @@ Scenario keys (all optional)::
 Steps (strings "$THREAD", "$TURN", "$CWD", "$TOOL_TEXT", "$TOOL_SUCCESS" are substituted)::
 
     {"notify": method, "params": {...}}
-    {"item": {...}, "phase": "started" | "completed"}
+    {"item": {...}, "phase": "started" | "completed", "threadId"?, "turnId"?}
+                               threadId/turnId override the main thread (sub-agent items)
     {"approval": "command" | "fileChange" | "permissions", "params": {...},
      "accept": [step], "decline": [step]}
     {"toolCall": {"callId", "tool", "arguments", "namespace"?}, "then": [step]}
@@ -122,6 +123,18 @@ def make_thread(thread_id: str, cwd: str, *, model: str | None, preview: str = "
     return thread
 
 
+def source_kind(source: Any) -> str:
+    """ThreadSourceKind of a SessionSource value (``{"subAgent": {"thread_spawn": ...}}`` ...)."""
+    if isinstance(source, str):
+        return source
+    if isinstance(source, dict) and "subAgent" in source:
+        sub = source["subAgent"]
+        if isinstance(sub, dict):
+            return "subAgentThreadSpawn" if "thread_spawn" in sub else "subAgentOther"
+        return {"review": "subAgentReview", "compact": "subAgentCompact"}.get(str(sub), "subAgent")
+    return "unknown"
+
+
 class NoResponse(Exception):
     """The real server sends no response at all (e.g. turn/interrupt after the turn finished)."""
 
@@ -175,7 +188,12 @@ class FakeServer:
                 key = "startedAtMs" if method == "item/started" else "completedAtMs"
                 self.notify(
                     method,
-                    {"item": step["item"], "threadId": self.ctx()["$THREAD"], "turnId": self.ctx()["$TURN"], key: 1},
+                    {
+                        "item": step["item"],
+                        "threadId": step.get("threadId") or self.ctx()["$THREAD"],  # sub-agent thread override
+                        "turnId": step.get("turnId") or self.ctx()["$TURN"],
+                        key: 1,
+                    },
                 )
             elif "approval" in step:
                 method = {
@@ -391,6 +409,9 @@ class FakeServer:
             return {}
         if method == "thread/list":
             data = self.threads()
+            kinds = params.get("sourceKinds")
+            if kinds:  # like the real server: sub-agent threads only when asked for
+                data = [t for t in data if source_kind(t.get("source")) in kinds]
             cwd = params.get("cwd")
             if cwd is not None:
                 wanted = cwd if isinstance(cwd, list) else [cwd]

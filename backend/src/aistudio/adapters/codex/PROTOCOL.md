@@ -106,14 +106,64 @@ cancel the pending handler and send nothing.
 | fileChange started / completed (`changes: [{path, kind, diff}]`) | `ToolCall(kind=file_edit, tool="apply_patch")`, `ToolResultEv`, `FileChanged` per change when `completed` |
 | mcpToolCall | `ToolCall(kind=mcp, tool="mcp__<server>__<tool>")`, `ToolResultEv` |
 | dynamic tool (`item/tool/call` request) | `ToolCall(kind=studio)`, `ToolResultEv` (the dynamicToolCall item is not re-reported) |
-| webSearch / collabAgentToolCall / imageView | `ToolCall(kind=web / subagent / file_read)` |
+| webSearch / collabAgentToolCall / imageView | `ToolCall(kind=web / subagent / file_read)` (collab: Turkish summary per tool, output = per-agent status + final message) |
 | `thread/tokenUsage/updated {total, last, modelContextWindow}` | `Usage` per turn: `total - (total - last at the turn's first update)`; `input_tokens` excludes cached input (`cache_read_tokens`); `context_used = last.totalTokens` |
 | `account/rateLimits/updated {rateLimits}` | `sink.limits(...)` |
 | `error {error, willRetry}` | `AgentErrorEv(retryable=willRetry, code=codexErrorInfo)` |
 | `thread/status/changed` systemError | `StatusChanged(error)` |
 
-Notifications for other thread ids (sub-agents) are ignored. Unknown notifications are logged at
-debug level; malformed lines are skipped.
+Notifications for other thread ids are sub-agent threads (next section). Unknown notifications
+are logged at debug level; malformed lines are skipped.
+
+## Sub-agents → `agent.subagent.*`
+
+Facts from the 0.160.0 **source** (`codex-rs` at tag `rust-v0.160.0`: `app-server/src/lib.rs`,
+`request_processors/thread_processor.rs`, `bespoke_event_handling.rs`,
+`app-server-protocol/src/protocol/v2/item.rs`, `core/src/tools/handlers/multi_agents*`):
+
+* The app-server attaches a conversation listener to **every thread its ThreadManager creates**
+  (`thread_created` broadcast → `try_attach_thread_listener` for all initialized connections), so
+  a spawned sub-agent's `turn/*`, `item/*`, deltas, `thread/tokenUsage/updated`,
+  `thread/status/changed` and approval requests reach us with the sub-agent's `threadId`.
+  **No `thread/started` is sent for collab spawns** (only for start/fork/detached review). With
+  one app-server process per AI Studio session, every foreign `threadId` is a descendant of our
+  thread. Implemented in `subagents.py` (`CodexSubagents`); `subagent_id` = sub-agent thread id.
+* **Multi-agent v1** (`spawn_agent`, `send_input`, `wait`, `close_agent`, `resume_agent`): items
+  `collabAgentToolCall {id, tool: spawnAgent|sendInput|resumeAgent|wait|closeAgent, status,
+  senderThreadId, receiverThreadIds, prompt, model, reasoningEffort, agentsStates: {threadId:
+  {status: pendingInit|running|interrupted|completed|errored|shutdown|notFound, message}}}` in the
+  sender's thread. `spawnAgent` starts with `receiverThreadIds: []` and completes with the new id
+  (`agentsStates` = its initial status). `wait`/`closeAgent` carry final statuses; `message` is the
+  final answer (`completed`) or the error (`errored`). The default multi-agent mode is
+  `explicitRequestOnly` (the model spawns only when asked).
+* **Multi-agent v2** (`spawn` with `task_name`, `send_message`, `followup_task`, …): no collab
+  item for the spawn; `subAgentActivity {id, kind: started|interacted|interrupted|completed,
+  agentThreadId, agentPath ("/root/<task>")}` in the initiating thread (`started` uses the spawn
+  call id).
+* **Mapping**: a foreign thread is adopted as a sub-agent when it first shows up — matched to the
+  oldest unclaimed in-progress `spawnAgent` (parent = its sender, `parent_call_id` = item id,
+  prompt/model from the item); without a pending spawn only on real activity (turn/item events),
+  not on a bare status change. The spawn's `item/completed` is authoritative and fixes an
+  out-of-order guess. `SubagentStarted` is then enriched (upsert) from a background `thread/read`
+  (`agentRole` unless `default`, else `agentNickname`; `model`; `parentThreadId` /
+  `source.subAgent.thread_spawn.parent_thread_id`). v2 names come from the agent path. Sub-agent
+  `turn/completed` → `SubagentCompleted` (`completed`→success, `failed`→error,
+  `interrupted`→interrupted, result = final/last agent message or the turn error); terminal
+  `agentsStates`, `subAgentActivity completed|interrupted` and `thread/closed` end it too (once).
+  A new turn on a finished sub-agent (sendInput) re-announces it. Payloads from sub-agent threads
+  are tagged and never touch the main turn/state; a sub-agent's `thread/tokenUsage/updated`
+  (cumulative per thread) is kept for `SubagentCompleted.usage` and not emitted as `agent.usage`
+  (the limits module sums those per task). Approvals and dynamic tool calls from
+  a sub-agent thread carry `subagent_id`. On process exit open sub-agents are ended
+  (`interrupted`, or `error` on a crash).
+* **History**: `thread/list` with our `sourceKinds` excludes sub-agent threads. Import reads the
+  sub-agent threads named by spawn items / activity markers (`thread/read` + `thread/turns/list`,
+  recursively, ≤64) and replays them where they were spawned, tagged; unreadable ones still appear
+  from the parent's collab items, and ones never seen ending are `interrupted`.
+* **(assumed)**, checked by `verify_codex.py --subagents`: that the multi-agent tools are on for
+  app-server threads of a ChatGPT login in 0.160.x (feature gating), the exact interleaving of a
+  sub-agent's first events and the spawn's `item/completed`, and that `thread/read` answers for a
+  loaded sub-agent thread.
 
 ## Rate limits
 

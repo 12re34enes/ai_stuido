@@ -20,7 +20,7 @@ import re
 import secrets
 import uuid
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -71,6 +71,13 @@ _MAX_TURN_HISTORY = 500
 # into the running turn, or work resumed after a background task).
 AUTO_TURN_INPUT = ""
 DEFAULT_DENY_MESSAGE = "The user denied this action."
+# How foreground subagents still open when their turn ends are reported.
+_SUBAGENT_END: dict[TurnStatus, Literal["error", "interrupted"]] = {
+    "success": "interrupted",
+    "max_turns": "interrupted",
+    "interrupted": "interrupted",
+    "error": "error",
+}
 
 
 class ClaudeControlError(Exception):
@@ -348,6 +355,7 @@ class ClaudeSession:
         paths = tool_paths(tool, args, cwd)
         if blocked and blocked not in paths:
             paths.append(blocked)
+        tool_use_id = as_str(request.get("tool_use_id"))
         perm = PermissionRequest(
             request_id=req_id,
             tool=tool,
@@ -357,6 +365,7 @@ class ClaudeSession:
             paths=paths,
             command=tool_command(tool, args),
             reason=reason,
+            subagent_id=self._norm.subagents.permission_subagent(tool_use_id, as_str(request.get("agent_id"))),
         )
         self._waiting_permissions += 1
         await self._set_state(AgentState.waiting_permission, summary)
@@ -369,7 +378,6 @@ class ClaudeSession:
             decision = PermissionDecision(allow=False, reason=f"Permission check failed: {e}")
         finally:
             self._waiting_permissions -= 1
-        tool_use_id = as_str(request.get("tool_use_id"))
         if decision.allow:
             updated = decision.updated_input if decision.updated_input is not None else args
             response: dict[str, Any] = {"behavior": "allow", "updatedInput": updated}
@@ -469,6 +477,12 @@ class ClaudeSession:
             if sid and sid != self._native_id:
                 log.warning("claude: session id changed %s -> %s", self._native_id, sid)
                 self._native_id = sid
+        elif subtype == "task_started":
+            await self._emit_all(self._norm.subagents.task_started(msg))
+        elif subtype == "task_notification":
+            await self._emit_all(self._norm.subagents.system_task_notification(msg))
+        elif subtype == "task_updated":
+            await self._emit_all(self._norm.subagents.task_updated(msg))
         elif subtype == "status":
             if msg.get("status") == "compacting" and self._current is not None:
                 await self._set_state(AgentState.thinking, "Bağlam sıkıştırılıyor")
@@ -599,6 +613,8 @@ class ClaudeSession:
             nxt = self._queue.popleft()
             self._claim(nxt)
 
+        # foreground subagents cannot outlive their turn (background ones end with a task_notification)
+        await self._emit_all(self._norm.subagents.finish(_SUBAGENT_END[status], foreground_only=True))
         await self._emit(usage)
         await self._emit(
             TurnCompleted(turn_id=turn.turn_id, status=status, result_text=result.text, usage=usage, error=error)
@@ -683,6 +699,7 @@ class ClaudeSession:
                     )
             self._steers.clear()
             if self._started_ok:
+                await self._emit_all(self._norm.subagents.finish("error" if unexpected else "interrupted"))
                 if error_text:
                     await self._emit(AgentErrorEv(message=error_text, retryable=True, code="process_exit"))
                 reason: Literal["completed", "closed", "error", "killed"] = (
@@ -723,6 +740,10 @@ class ClaudeSession:
             await self._sink.emit(payload)
         except Exception:
             log.exception("claude: event sink failed for %s", type(payload).__name__)
+
+    async def _emit_all(self, payloads: Sequence[AgentEventPayload]) -> None:
+        for payload in payloads:
+            await self._emit(payload)
 
     async def _set_state(self, state: AgentState, detail: str | None = None) -> None:
         if state == self._state and detail == self._detail:

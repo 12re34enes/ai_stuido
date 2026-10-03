@@ -263,6 +263,8 @@ AgentEventPayload = (
     | TurnCompleted
     | SessionEnded
     | AgentErrorEv
+    | SubagentStarted
+    | SubagentCompleted
 )
 
 # event type for each payload class (manager uses this when writing to the event log)
@@ -306,6 +308,7 @@ class PermissionRequest(BaseModel):
     paths: list[str] = Field(default_factory=list)  # files the action touches, if known
     command: str | None = None  # shell command, if any
     reason: str | None = None  # CLI-provided explanation
+    subagent_id: str | None = None  # raised inside a CLI-native subagent (SubagentStarted.subagent_id)
 
 
 class PermissionDecision(BaseModel):

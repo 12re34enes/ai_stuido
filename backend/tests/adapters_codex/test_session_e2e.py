@@ -24,6 +24,7 @@ from aistudio.contracts.agents import (
     SessionSpec,
     SessionStarted,
     StatusChanged,
+    SubagentStarted,
     Thinking,
     ThinkingDelta,
     ToolCall,
@@ -399,7 +400,11 @@ async def test_malformed_lines_unknown_and_foreign_notifications_are_ignored(
     session, sink, _tools, _ = await start(h, spec_for(workdir))
     result = await session.wait_turn(await session.send("devam"), timeout=10)
     assert result.status == "success" and result.text == "Hâlâ çalışıyorum."
-    assert sink.of(MessageDelta) == []  # the sub-agent thread's delta was filtered out
+    # every other thread on our app-server is a sub-agent: its delta is tagged, never main-thread text
+    assert [d for d in sink.of(MessageDelta) if d.subagent_id is None] == []
+    (sub_delta,) = sink.of(MessageDelta)
+    assert sub_delta.subagent_id == "019a7a10-ffff-7000-8000-00000000ffff"
+    assert [s.subagent_id for s in sink.of(SubagentStarted)][:1] == [sub_delta.subagent_id]
     assert session._conn is not None and session._conn.malformed_lines >= 3
     await session.close()
 

@@ -21,6 +21,7 @@ from aistudio.contracts.agents import (
     FileChanged,
     Message,
     MessageDelta,
+    SubagentStarted,
     ToolCall,
     ToolKind,
     ToolResultEv,
@@ -204,7 +205,7 @@ def test_frames_without_streaming_get_sequential_ids() -> None:
     assert [p.message_id for p in a.payloads + b.payloads if isinstance(p, Message)] == ["m9:0", "m9:1"]
 
 
-def test_subagent_frames_emit_tools_but_not_text_or_state() -> None:
+def test_subagent_frames_are_tagged_and_never_change_state() -> None:
     n = ClaudeNormalizer("/repo")
     out = n.assistant(
         {
@@ -216,9 +217,14 @@ def test_subagent_frames_emit_tools_but_not_text_or_state() -> None:
                 ],
             },
             "parent_tool_use_id": "toolu_task",
+            "subagent_type": "Explore",
         }
     )
-    assert [type(p) for p in out.payloads] == [ToolCall] and out.state is None
+    # unknown spawner (e.g. a resumed process): the subagent is announced lazily
+    assert [type(p) for p in out.payloads] == [SubagentStarted, Message, ToolCall] and out.state is None
+    started = out.payloads[0]
+    assert isinstance(started, SubagentStarted) and started.subagent_id == "toolu_task" and started.name == "Explore"
+    assert all(getattr(p, "subagent_id", None) == "toolu_task" for p in out.payloads)
     res = n.user(
         {
             "message": {"content": [{"type": "tool_result", "tool_use_id": "t9", "content": "ok"}]},
@@ -227,6 +233,8 @@ def test_subagent_frames_emit_tools_but_not_text_or_state() -> None:
         }
     )
     assert [type(p) for p in res.payloads] == [ToolResultEv, FileChanged] and res.state is None
+    assert all(getattr(p, "subagent_id", None) == "toolu_task" for p in res.payloads)
+    assert n.pending_main_tools == 0
 
 
 def test_bash_exit_code_and_api_error() -> None:

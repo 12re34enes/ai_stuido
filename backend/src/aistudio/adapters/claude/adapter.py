@@ -29,6 +29,8 @@ from aistudio.adapters.claude.history import (
     SNAPSHOT_SCRIPT,
     STAT_SCRIPT,
     FileSnapshot,
+    SubagentTranscript,
+    agent_id_from_path,
     history_payloads,
     new_marker,
     parse_snapshot_output,
@@ -403,7 +405,52 @@ class ClaudeAdapter:
         if path is None:
             raise NotFound(f"Claude oturumu bulunamadı: {native_id}")
         data = await transport.read_file(path)
-        return history_payloads(data.decode("utf-8", errors="replace"), native_id)
+        subagents = await self._subagent_transcripts(transport, posixpath.join(posixpath.dirname(path), native_id))
+        return history_payloads(data.decode("utf-8", errors="replace"), native_id, subagents)
+
+    async def _subagent_transcripts(self, transport: Transport, session_dir: str) -> dict[str, SubagentTranscript]:
+        """``<session>/subagents/agent-<id>.jsonl`` + ``.meta.json`` (nested ones included)."""
+        base = posixpath.join(session_dir, "subagents")
+        try:
+            found = sorted(
+                {
+                    *await transport.glob(posixpath.join(base, "agent-*")),
+                    *await transport.glob(posixpath.join(base, "**", "agent-*")),
+                }
+            )
+        except Exception as e:
+            log.info("claude: cannot list subagent transcripts in %s: %s", base, e)
+            return {}
+        sem = asyncio.Semaphore(_READ_CONCURRENCY)
+
+        async def read(path: str) -> tuple[str, str] | None:
+            async with sem:
+                try:
+                    return path, (await transport.read_file(path)).decode("utf-8", errors="replace")
+                except Exception as e:
+                    log.info("claude: cannot read %s: %s", path, e)
+                    return None
+
+        out: dict[str, SubagentTranscript] = {}
+        metas: dict[str, dict[str, Any]] = {}
+        for item in await asyncio.gather(*(read(p) for p in found if p.endswith((".jsonl", ".meta.json")))):
+            if item is None:
+                continue
+            path, text = item
+            agent_id = agent_id_from_path(path)
+            if agent_id is None:
+                continue
+            if path.endswith(".meta.json"):
+                with contextlib.suppress(ValueError):
+                    meta = json.loads(text)
+                    if isinstance(meta, dict):
+                        metas[agent_id] = meta
+            else:
+                out[agent_id] = SubagentTranscript(agent_id=agent_id, text=text)
+        for agent_id, meta in metas.items():
+            if agent_id in out:
+                out[agent_id].meta = meta
+        return out
 
     # ------------------------------------------------------------------ limits
 
