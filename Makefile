@@ -4,7 +4,7 @@ DEV_PORT  := 8765
 DEV_TOKEN := dev-token
 DEV_ENV   := AISTUDIO_HOME=$(DEV_HOME) AISTUDIO_DEV=1 AISTUDIO_DEV_TOKEN=$(DEV_TOKEN) AISTUDIO_PORT=$(DEV_PORT)
 
-.PHONY: help setup dev dev-backend dev-web dev-app test test-backend test-web lint typecheck check verify-clis
+.PHONY: help setup dev dev-backend dev-web dev-app test test-backend test-web lint typecheck check check-secrets verify-clis
 
 help:
 	@echo "make setup         install backend (uv) and frontend (pnpm) dependencies"
@@ -45,7 +45,10 @@ typecheck:
 	cd backend && uv run pyright
 	pnpm --filter desktop typecheck
 
-check: lint typecheck test
+check-secrets:
+	python3 scripts/dev/check_secrets.py
+
+check: check-secrets lint typecheck test
 
 verify-clis:
 	cd backend && uv run python ../scripts/verify/claude/verify_claude.py
