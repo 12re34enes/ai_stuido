@@ -36,3 +36,4 @@ scripts/verify/out/
 
 # Agent worktrees (local only)
 .claude/worktrees/
+.aistudio-demo/

@@ -2,7 +2,7 @@
  * A shared ticking clock. All subscribers with the same interval share one timer, so a dozen
  * countdowns cost one setInterval. Returns epoch milliseconds.
  */
-import { useSyncExternalStore } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 
 interface Ticker {
   now: number;
@@ -42,11 +42,14 @@ function subscribe(interval: number, fn: () => void): () => void {
 
 const staticNow = () => 0;
 
-/** Current time, re-rendering every `intervalMs`. Pass `enabled=false` to freeze (no timer). */
+/** Current time, re-rendering every `intervalMs`. Pass `enabled=false` to freeze (no timer).
+ *
+ * `subscribe` and `getSnapshot` must be stable: an inline subscribe makes React re-subscribe on
+ * every render, which restarts the ticker and moves `now`, which renders again — an infinite loop
+ * that only shows with a real (non-frozen) clock. */
 export function useNow(intervalMs = 1000, enabled = true): number {
-  return useSyncExternalStore(
-    (fn) => (enabled ? subscribe(intervalMs, fn) : () => {}),
-    () => (enabled ? ticker(intervalMs).now : ticker(intervalMs).now || Date.now()),
-    staticNow,
-  );
+  const [frozen] = useState(() => Date.now());
+  const sub = useCallback((fn: () => void) => (enabled ? subscribe(intervalMs, fn) : () => {}), [intervalMs, enabled]);
+  const snapshot = useCallback(() => (enabled ? ticker(intervalMs).now : frozen), [intervalMs, enabled, frozen]);
+  return useSyncExternalStore(sub, snapshot, staticNow);
 }

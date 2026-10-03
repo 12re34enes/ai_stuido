@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useLocation, useOutlet } from "react-router";
+import { useContext } from "react";
+import { UNSAFE_LocationContext as LocationContext, useLocation, useOutlet } from "react-router";
 
 import { variants } from "@/motion/tokens";
 
@@ -13,6 +14,10 @@ import { sectionKey } from "./route";
 export function AnimatedOutlet() {
   const location = useLocation();
   const outlet = useOutlet();
+  // The leaving page must keep seeing ITS location: features nest `<Routes location>` for their
+  // own transitions, and handing them the next section's path breaks React Router's base check.
+  // AnimatePresence keeps the exiting element as last rendered, so this provider stays frozen.
+  const locationContext = useContext(LocationContext);
   const key = sectionKey(location.pathname);
   return (
     <AnimatePresence mode="popLayout" initial={false}>
@@ -25,7 +30,7 @@ export function AnimatedOutlet() {
         exit="exit"
         className="absolute inset-0 overflow-y-auto overscroll-contain"
       >
-        {outlet}
+        <LocationContext.Provider value={locationContext}>{outlet}</LocationContext.Provider>
       </motion.div>
     </AnimatePresence>
   );
