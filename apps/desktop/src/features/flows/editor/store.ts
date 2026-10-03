@@ -72,6 +72,7 @@ export interface EditorState extends EditorMeta {
   onNodesChange: (changes: NodeChange<CanvasNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<CanvasEdge>[]) => void;
   beginDrag: () => void;
+  endDrag: () => void;
   connect: (c: Connection) => void;
   addNode: (kind: NodeKind, position: XYPosition) => string;
   updateNode: (id: string, patch: Partial<FlowNodeData>, key?: string) => void;
@@ -126,14 +127,14 @@ function overlaps(p: XYPosition, nodes: CanvasNode[]): boolean {
   return nodes.some((n) => Math.abs(n.position.x - p.x) < NODE_WIDTH + GAP && Math.abs(n.position.y - p.y) < NODE_HEIGHT + GAP);
 }
 
-/** Move a drop position to the nearest free slot (below first, then above), snapped to the 8px grid. */
+/** Move a drop position to the nearest free slot (above first: loop edges route below), snapped to the 8px grid. */
 function freeSpot(p: XYPosition, nodes: CanvasNode[]): XYPosition {
   const snap = (v: number) => Math.round(v / 8) * 8;
   const base = { x: snap(p.x), y: snap(p.y) };
   if (!overlaps(base, nodes)) return base;
   const step = NODE_HEIGHT + GAP + 8;
   for (let i = 1; i < 30; i++) {
-    for (const dir of [1, -1]) {
+    for (const dir of [-1, 1]) {
       const spot = { x: base.x, y: snap(base.y + dir * i * step) };
       if (!overlaps(spot, nodes)) return spot;
     }
@@ -185,6 +186,8 @@ export function createEditorStore() {
     };
 
     const takenIds = () => new Set(get().nodes.map((n) => n.id));
+    /** A pointer drag is in progress (its single undo step was committed at drag start). */
+    let dragging = false;
 
     return {
       flowId: null,
@@ -252,6 +255,8 @@ export function createEditorStore() {
           s.nodes,
         );
         const moved = changes.some((c) => c.type === "position" && c.position);
+        // Arrow-key moves (no pointer drag in progress) become undo steps, coalesced per burst.
+        if (moved && !dragging) commit("move:keyboard");
         if (moved) changed({ nodes });
         else set({ nodes });
       },
@@ -261,7 +266,14 @@ export function createEditorStore() {
         set({ edges: applyEdgeChanges(changes.filter((c) => c.type === "select"), s.edges) });
       },
 
-      beginDrag: () => commit(),
+      beginDrag: () => {
+        commit();
+        dragging = true;
+      },
+
+      endDrag: () => {
+        dragging = false;
+      },
 
       connect: (c) => {
         const s = get();

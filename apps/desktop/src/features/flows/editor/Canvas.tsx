@@ -16,7 +16,7 @@ import { spring, variants } from "@/motion/tokens";
 import { cn, IconButton } from "@/ui";
 
 import type { CanvasEdge, CanvasNode } from "../model/graph";
-import { s } from "../strings";
+import { canvasAria, s } from "../strings";
 import type { NodeKind } from "../types";
 import { ConnectionLine } from "./canvas/ConnectionLine";
 import { FlowCanvasEdge } from "./canvas/FlowCanvasEdge";
@@ -187,6 +187,8 @@ export function Canvas({ className }: { className?: string }) {
         onConnect={st.connect}
         onNodeDragStart={st.beginDrag}
         onSelectionDragStart={st.beginDrag}
+        onNodeDragStop={st.endDrag}
+        onSelectionDragStop={st.endDrag}
         onNodeDoubleClick={st.requestLabelFocus}
         onPaneClick={() => store.getState().setPanel(null)}
         onDragOver={onDragOver}
@@ -213,6 +215,7 @@ export function Canvas({ className }: { className?: string }) {
         maxZoom={1.75}
         elevateEdgesOnSelect
         proOptions={{ hideAttribution: true }}
+        ariaLabelConfig={canvasAria}
         aria-label={s.editor.canvasLabel}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1.1} color="var(--line-strong)" />

@@ -90,6 +90,25 @@ export const severityStrings: Record<string, string> = {
   low: "Düşük",
 };
 
+const DIRECTIONS: Record<string, string> = { up: "yukarı", down: "aşağı", left: "sola", right: "sağa" };
+
+/** Turkish screen-reader strings for the canvas (@xyflow/react ariaLabelConfig). */
+export const canvasAria = {
+  "node.a11yDescription.default": "Seçmek için Enter ya da boşluk tuşuna bas. Silmek için Delete, vazgeçmek için Escape.",
+  "node.a11yDescription.keyboardDisabled":
+    "Seçmek için Enter ya da boşluk tuşuna bas. Sonra ok tuşlarıyla düğümü taşıyabilirsin. Silmek için Delete, vazgeçmek için Escape.",
+  "node.a11yDescription.ariaLiveMessage": ({ direction, x, y }: { direction: string; x: number; y: number }) =>
+    `Seçili düğüm ${DIRECTIONS[direction] ?? direction} taşındı. Yeni konum: x ${x}, y ${y}`,
+  "edge.a11yDescription.default": "Bağlantıyı seçmek için Enter ya da boşluk tuşuna bas. Silmek için Delete, vazgeçmek için Escape.",
+  "controls.ariaLabel": "Tuval denetimleri",
+  "controls.zoomIn.ariaLabel": "Yakınlaştır",
+  "controls.zoomOut.ariaLabel": "Uzaklaştır",
+  "controls.fitView.ariaLabel": "Tümünü göster",
+  "controls.interactive.ariaLabel": "Etkileşimi aç/kapat",
+  "minimap.ariaLabel": "Mini harita",
+  "handle.ariaLabel": "Bağlantı noktası",
+};
+
 export const s = {
   pageTitle: "Akışlar",
   pageSubtitle: "Ajanları, kapıları ve dalları tuvalde birleştir. Modlar ve stüdyolar da birer akıştır.",

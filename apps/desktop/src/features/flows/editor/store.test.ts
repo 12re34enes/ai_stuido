@@ -77,6 +77,26 @@ describe("editor store", () => {
     expect(store.getState().nodes.map((n) => n.id)).toContain("condition");
   });
 
+  it("records keyboard moves (coalesced) and one step per pointer drag", () => {
+    const store = setup();
+    const move = (x: number, dragging?: boolean) => store.getState().onNodesChange([{ type: "position", id: "dev", position: { x, y: 240 }, dragging }]);
+    move(88);
+    move(96);
+    expect(store.getState().past).toHaveLength(1);
+    expect(store.getState().nodes[0]!.position.x).toBe(96);
+    vi.advanceTimersByTime(1500);
+    store.getState().beginDrag();
+    move(120, true);
+    move(160, true);
+    move(160, false); // xyflow's final change arrives before onNodeDragStop
+    store.getState().endDrag();
+    expect(store.getState().past).toHaveLength(2);
+    store.getState().undo();
+    expect(store.getState().nodes[0]!.position.x).toBe(96);
+    store.getState().undo();
+    expect(store.getState().nodes[0]!.position.x).toBe(80);
+  });
+
   it("coalesces typing into one undo step per field", () => {
     const store = setup();
     store.getState().updateNode("dev", { label: "Y" });

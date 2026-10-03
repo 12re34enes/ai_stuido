@@ -187,8 +187,27 @@ function validate(graph: Json): Json {
   const errors: Json[] = [];
   const warnings: Json[] = [];
   if (!nodes.length) return { ok: false, errors: [{ code: "empty", message: "Akışta hiç düğüm yok.", node_id: null, edge_id: null }], warnings };
+  // Entry rule from engine/graph.py: every incoming edge is a loop edge coming back from a node it reaches.
   const loops = new Set(["failed", "false", "rejected"]);
-  const entries = nodes.filter((n) => !edges.some((e) => e.target === n.id && !loops.has(String(e.condition))));
+  const reach = (start: unknown) => {
+    const seen = new Set([start]);
+    const stack = [start];
+    while (stack.length) {
+      const cur = stack.pop();
+      for (const e of edges) {
+        if (e.source !== cur || seen.has(e.target)) continue;
+        seen.add(e.target);
+        stack.push(e.target);
+      }
+    }
+    return seen;
+  };
+  const entries = nodes.filter((n) => {
+    const inc = edges.filter((e) => e.target === n.id);
+    if (inc.some((e) => !loops.has(String(e.condition)))) return false;
+    const r = reach(n.id);
+    return inc.every((e) => r.has(e.source));
+  });
   if (entries.length > 1) errors.push({ code: "multiple_entries", message: `Akışın tek bir başlangıç düğümü olmalı; şu an birden fazla var: ${entries.map((n) => n.id).join(", ")}.`, node_id: null, edge_id: null });
   for (const n of nodes) {
     const c = n.config as Json;
