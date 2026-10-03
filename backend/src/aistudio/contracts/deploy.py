@@ -49,8 +49,15 @@ class DeployService(Protocol):
         task_id: str | None = None,
         run_id: str | None = None,
         summary: str | None = None,
+        approval_id: str | None = None,
     ) -> DeployResult:
-        """Production always requires an explicit (locked) approval first."""
+        """Production always requires an explicit (locked) approval first.
+
+        ``approval_id``: an already-approved deploy approval from the same flow run (the flow's
+        ``deploy_approval`` gate). It is honoured only if it is approved, of kind deploy, belongs to
+        the same task and run, covers this profile, is a production approval when the target is
+        production, was decided recently and has not been used by another deploy; otherwise a fresh
+        approval is requested as usual."""
         ...
 
     async def rollback(self, deploy_id: str, *, actor: str) -> DeployResult: ...

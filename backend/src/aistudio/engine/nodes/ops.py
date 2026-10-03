@@ -285,8 +285,28 @@ async def run_deploy_node(nctx: NodeContext) -> NodeOutcome:
             ref = str(next(iter(branches.values())))
             break
     summary, _ = await final_summary(nctx, nctx.writer_target(nearest_writer(ex.topo, nctx.node_id)))
+    # Hand the flow's passed deploy_approval gate to the service so the user isn't asked twice;
+    # the service re-validates it (same task/run/profile, production, recency, single use).
+    gate_approval: str | None = None
+    for nid in ex.topo.ancestors(nctx.node_id):
+        gcfg = ex.topo.nodes[nid].config
+        cached = ex.gate_cache.get(nid)
+        if (
+            isinstance(gcfg, GateNodeConfig)
+            and gcfg.gate == GateKind.deploy_approval
+            and cached is not None
+            and cached.status == "passed"
+            and cached.evidence.get("approval_id")
+        ):
+            gate_approval = str(cached.evidence["approval_id"])
     result = await deploy.deploy(
-        cfg.profile_id, ref=ref, actor="engine", task_id=ex.task.id, run_id=ex.run_id, summary=summary
+        cfg.profile_id,
+        ref=ref,
+        actor="engine",
+        task_id=ex.task.id,
+        run_id=ex.run_id,
+        summary=summary,
+        approval_id=gate_approval,
     )
     data = result.model_dump(mode="json")
     data["log"] = truncate(result.log, 8000)

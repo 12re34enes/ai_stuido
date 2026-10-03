@@ -57,6 +57,9 @@ from aistudio.deploy.tables import deploy_runs as runs_t
 
 log = logging.getLogger(__name__)
 
+# A flow's deploy-gate approval may stand in for the service's own approval this long.
+PREAPPROVAL_MAX_AGE = timedelta(minutes=60)
+
 MAX_LOG_CHARS = 256 * 1024
 
 
@@ -405,9 +408,10 @@ class DeployServiceImpl:
         task_id: str | None = None,
         run_id: str | None = None,
         summary: str | None = None,
+        approval_id: str | None = None,
     ) -> DeployResult:
         run, lock, config = await self._prepare(profile_id, ref, actor, task_id, run_id, summary, rollback_of=None)
-        final = await self._execute(run, config, lock)
+        final = await self._execute(run, config, lock, preapproval_id=approval_id)
         return self.to_result(final)
 
     async def rollback(self, deploy_id: str, *, actor: str) -> DeployResult:
@@ -673,13 +677,55 @@ class DeployServiceImpl:
             run_id=run.run_id,
         )
 
-    async def _execute(self, run: DeployRun, config: BaseModel, lock: asyncio.Lock) -> DeployRun:
+    async def _accept_preapproval(self, run: DeployRun, profile: DeployProfile, approval_id: str) -> Approval | None:
+        """Validate an approval granted earlier in the same flow run (the deploy_approval gate) so
+        the user is not asked twice. Any mismatch returns None and a fresh approval is requested."""
+        if run.rollback_of is not None or run.actor.startswith("agent:") or run.task_id is None:
+            return None
+        svc = self.ctx.services.get(ApprovalService)  # type: ignore[type-abstract]
+        try:
+            approval = await svc.get(approval_id)
+        except NotFound:
+            return None
+        if approval.kind != ApprovalKind.deploy or approval.status != ApprovalStatus.approved:
+            return None
+        if approval.task_id != run.task_id or approval.run_id != run.run_id:
+            return None
+        if run.environment == Environment.production and not approval.production:
+            return None
+        if approval.decided_at is None or utcnow() - approval.decided_at > PREAPPROVAL_MAX_AGE:
+            return None
+        profiles = approval.payload.get("profiles") or []
+        if not any(isinstance(p, dict) and p.get("profile_id") == profile.id for p in profiles):
+            return None
+        async with self.ctx.db.connect() as conn:
+            used = (
+                await conn.execute(
+                    sa.select(sa.func.count())
+                    .select_from(runs_t)
+                    .where(runs_t.c.approval_id == approval.id, runs_t.c.id != run.id)
+                )
+            ).scalar()
+        if used:
+            return None  # single use: an approval never authorizes two deploys
+        return approval
+
+    async def _execute(
+        self, run: DeployRun, config: BaseModel, lock: asyncio.Lock, *, preapproval_id: str | None = None
+    ) -> DeployRun:
         ex = _Execution(self, run)
         production = run.environment == Environment.production
         try:
             profile = await self.get_profile(run.profile_id)
             needs, why = await self._needs_approval(run, config)
-            if needs:
+            preapproval = (
+                await self._accept_preapproval(run, profile, preapproval_id) if needs and preapproval_id else None
+            )
+            if preapproval is not None:
+                ex.approval = preapproval
+                ex.run = await self._update_run(run.id, approval_id=preapproval.id)
+                ex.log(f"Akıştaki deploy onayı kullanıldı ({preapproval.id}); tekrar sorulmadı.")
+            elif needs:
                 denial = await self._request_approval(ex, profile, config, why)
                 if denial is not None:
                     ex.log(denial)

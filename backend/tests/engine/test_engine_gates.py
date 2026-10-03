@@ -318,7 +318,10 @@ async def test_deploy_approval_is_production_locked_and_deploy_runs(env: EngineE
     await env.decide(ApprovalKind.deploy)
     run = await env.wait_run(run_id)
     assert run.status == "completed"
-    assert env.deploy.deploys == [{"profile_id": "prod", "ref": "m0001", "actor": "engine", "task_id": task.id}]
+    # The passed deploy gate's approval is handed to the deploy service (no second prompt).
+    assert env.deploy.deploys == [
+        {"profile_id": "prod", "ref": "m0001", "actor": "engine", "task_id": task.id, "approval_id": approval.id}
+    ]
 
 
 async def test_deploy_failure_fails_run(env: EngineEnv) -> None:

@@ -628,9 +628,12 @@ class FakeDeployService:
         task_id: str | None = None,
         run_id: str | None = None,
         summary: str | None = None,
+        approval_id: str | None = None,
     ) -> DeployResult:
         profile = await self.get_profile(profile_id)
-        self.deploys.append({"profile_id": profile_id, "ref": ref, "actor": actor, "task_id": task_id})
+        self.deploys.append(
+            {"profile_id": profile_id, "ref": ref, "actor": actor, "task_id": task_id, "approval_id": approval_id}
+        )
         now = utcnow()
         return DeployResult(
             id=new_id("dep"),
