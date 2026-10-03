@@ -1,0 +1,203 @@
+id: market-analysis
+name: Piyasa analizi
+description: >-
+  Web erişimli bir araştırmacı kaynaklı bir taslak hazırlar, eleştirmen kaynakları ve mantığı
+  denetler, araştırmacı eleştiriye göre raporu son haline getirir. Çıktı: kaynaklı rapor.
+icon: chart-line
+version: 1
+builtin: true
+inputs:
+  - name: topic
+    label: Analiz konusu
+    type: textarea
+    required: true
+    help: Ürün, hizmet ya da pazar. Örn. "KOBİ'ler için bulut tabanlı ön muhasebe yazılımları".
+  - name: market
+    label: Pazar ve bölge
+    type: text
+    required: false
+    default: Türkiye ve küresel
+  - name: questions
+    label: Yanıtlanacak sorular
+    type: textarea
+    required: false
+    default: ""
+    help: Raporun mutlaka yanıtlaması gereken sorular; her satıra bir soru.
+  - name: competitors
+    label: Bilinen rakipler
+    type: textarea
+    required: false
+    default: ""
+    help: Bildiğiniz rakipler; araştırmacı listeyi genişletir.
+  - name: depth
+    label: Derinlik
+    type: select
+    required: false
+    default: Standart
+    options: [Hızlı tarama, Standart, Derin]
+graph:
+  settings:
+    gates:
+      plan_approval: false
+      boundary_check: false
+      build_test: false
+      cross_review: false
+      user_final: true
+    limit_policy:
+      on_exhausted: switch_provider
+    max_parallel_agents: 1
+  nodes:
+    - id: research
+      label: Araştırma
+      position: {x: 0, y: 0}
+      config:
+        kind: advisor
+        provider: claude
+        web_access: true
+        perspective: Titiz piyasa araştırmacısı; her iddiayı güvenilir ve güncel bir kaynağa dayandırır.
+        prompt_template: |
+          Sen titiz bir piyasa araştırmacısısın. Web erişimin var; her önemli iddiayı güvenilir ve güncel
+          bir kaynağa dayandır.
+
+          ## Konu
+          {{ input.topic }}
+
+          ## Pazar ve bölge
+          {{ input.market }}
+          {% if input.questions %}
+
+          ## Yanıtlanacak sorular
+          {{ input.questions }}
+          {% endif %}
+          {% if input.competitors %}
+
+          ## Bilinen rakipler
+          {{ input.competitors }}
+          {% endif %}
+
+          ## Derinlik
+          {% if input.depth == "Hızlı tarama" -%}
+          Hızlı tarama: en önemli bulgulara odaklan; 5-10 güvenilir kaynak yeterli.
+          {%- elif input.depth == "Derin" -%}
+          Derin: kapsamlı ol; birincil kaynakları (resmî istatistikler, şirket raporları, düzenleyici
+          kurumlar, akademik çalışmalar) tercih et; 25 ve üzeri kaynak hedefle.
+          {%- else -%}
+          Standart: dengeli bir kapsam; 10-20 güvenilir kaynak hedefle.
+          {%- endif %}
+
+          ## Çalışma alanı hafızası
+          {{ memory.context }}
+
+          ## Görev
+          Aşağıdaki başlıklarla bir araştırma taslağı yaz:
+          1. Yönetici özeti (en fazla 5 madde)
+          2. Pazar tanımı ve büyüklüğü (TAM / SAM / SOM; yöntem ve varsayımlar açık)
+          3. Büyüme eğilimleri ve itici güçler
+          4. Müşteri segmentleri ve ihtiyaçları
+          5. Rekabet ortamı (tablo: rakip, ürün, fiyatlama, hedef kitle, güçlü ve zayıf yönler)
+          6. Düzenleyici ve makro etkenler
+          7. Fırsatlar ve tehditler
+          8. Belirsizlikler ve veri boşlukları
+
+          ## Kaynak kuralları
+          - Her sayısal veri ve önemli iddianın yanına [1] biçiminde kaynak numarası koy; sonda
+            "Kaynaklar" listesinde başlık, yayıncı, yayın tarihi ve URL ver.
+          - Kaynağını bulamadığın bilgiyi "Tahmin:" diye işaretle ve yöntemini yaz. Asla kaynak uydurma.
+          - İki yıldan eski verileri tarihleriyle birlikte belirt.
+          Türkçe yaz.
+
+    - id: critique
+      label: Eleştiri ve kaynak denetimi
+      position: {x: 300, y: 0}
+      config:
+        kind: advisor
+        provider: codex
+        web_access: true
+        perspective: Eleştirmen; kaynakları açıp doğrular, yöntem ve mantık hatalarını arar.
+        prompt_template: |
+          Sen deneyimli bir analist ve eleştirmensin. Aşağıdaki araştırma taslağını denetleyeceksin.
+          Web erişimin var: kaynakları gerçekten açıp kontrol et.
+
+          ## Konu
+          {{ input.topic }} ({{ input.market }})
+          {% if input.questions %}
+
+          ## Yanıtlanması gereken sorular
+          {{ input.questions }}
+          {% endif %}
+
+          ## Araştırma taslağı
+          {{ nodes.research.output }}
+
+          ## Görev
+          1. Kaynak denetimi: her kaynak erişilebilir mi, iddiayı gerçekten destekliyor mu, güncel ve
+             güvenilir mi? Sorunlu olanları tabloyla listele (kaynak no, sorun, öneri).
+          2. Yöntem ve mantık: pazar büyüklüğü hesabındaki varsayımları, çift sayımı, seçici kanıtı,
+             korelasyon-nedensellik karışıklığını bul.
+          3. Eksikler: atlanan rakipler, segmentler, riskler ya da düzenlemeler; yanıtlanmamış sorular.
+          4. Abartı: kanıtsız kesin ifadeleri işaretle.
+          5. Her bulguya önem derecesi ver: kritik, yüksek, orta, düşük.
+
+          Bulduğun yeni kaynakları da aynı biçimde (başlık, yayıncı, tarih, URL) ekle. Türkçe yaz.
+
+    - id: report
+      label: Son rapor
+      position: {x: 600, y: 0}
+      config:
+        kind: advisor
+        provider: claude
+        web_access: true
+        perspective: Araştırmacı; eleştiriyi dikkate alarak raporu son haline getirir.
+        prompt_template: |
+          Sen bu araştırmanın yazarısın. Eleştirmenin bulgularını dikkate alarak raporun son halini
+          yazacaksın.
+
+          ## Konu
+          {{ input.topic }} ({{ input.market }})
+
+          ## Taslak
+          {{ nodes.research.output }}
+
+          ## Eleştiri
+          {{ nodes.critique.output }}
+
+          ## Görev
+          - Kritik ve yüksek önemdeki bütün bulguları düzelt; düzeltemediklerini "Sınırlılıklar"
+            bölümünde açıkla.
+          - Doğrulanamayan iddiaları çıkar ya da açıkça tahmin olarak işaretle.
+          - Kaynak numaralarını baştan sırala; listedeki her kaynak metinde gerçekten kullanılmış olmalı.
+
+          ## Biçim
+          # <Rapor başlığı>
+          ## Yönetici özeti
+          ## Pazar tanımı ve büyüklüğü
+          ## Eğilimler ve itici güçler
+          ## Müşteri segmentleri
+          ## Rekabet ortamı (tablo)
+          ## Düzenleyici ve makro etkenler
+          ## Fırsatlar ve tehditler
+          ## Öneriler (önceliklendirilmiş ve somut)
+          ## Sınırlılıklar
+          ## Kaynaklar ([n] Başlık, Yayıncı, Tarih. URL)
+          Türkçe yaz.
+
+    - id: final
+      label: Son onay
+      position: {x: 900, y: 0}
+      config:
+        kind: gate
+        gate: user_final
+
+  edges:
+    - {id: e-research-critique, source: research, target: critique}
+    - {id: e-critique-report, source: critique, target: report}
+    - {id: e-report-final, source: report, target: final}
+output_format: markdown
+output_template: |
+  {{ nodes.report.output }}
+
+  ---
+
+  ## Ek: Eleştirmen notları
+
+  {{ nodes.critique.output }}

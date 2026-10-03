@@ -7,17 +7,20 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
+from aistudio.contracts.common import Environment
 from aistudio.contracts.flows import FlowGraph
 
 
 class StudioInput(BaseModel):
     name: str
     label: str  # Turkish
-    type: str = "text"  # text | textarea | select | repo | branch | host | db
+    type: str = "text"  # text | textarea | select | repo | branch | host | db | deploy_profile
     required: bool = True
     default: Any = None
     options: list[str] | None = None
     help: str | None = None
+    # host / deploy_profile inputs: only targets in this environment are accepted (checked on instantiate)
+    environment: Environment | None = None
 
 
 class Studio(BaseModel):

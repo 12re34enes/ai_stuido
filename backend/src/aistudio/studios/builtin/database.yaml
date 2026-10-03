@@ -1,0 +1,237 @@
+id: database
+name: Veritabanı
+description: >-
+  Şema tasarımcısı migration'ı ve geri alma adımlarını yazar, diğer model inceler, migration
+  yalnız test ortamında denenir. Production'a uygulama ayrı ve kilitli bir adımdır. Çıktı: şema,
+  migration, geri alma planı ve etki analizi.
+icon: database
+version: 1
+builtin: true
+inputs:
+  - name: change
+    label: Şema değişikliği
+    type: textarea
+    required: true
+    help: Ne değişmeli ve neden? Örn. "Siparişlere çoklu para birimi desteği eklensin."
+  - name: dialect
+    label: Veritabanı
+    type: select
+    required: false
+    default: PostgreSQL
+    options: [PostgreSQL, MySQL, SQLite, SQL Server, Diğer]
+  - name: migration_tool
+    label: Migration aracı
+    type: text
+    required: false
+    default: ""
+    help: Alembic, Prisma, Flyway, Rails... Boş bırakılırsa ajan repodan tespit eder.
+  - name: data_volume
+    label: Veri hacmi ve trafik
+    type: textarea
+    required: false
+    default: ""
+    help: Etkilenen tabloların yaklaşık satır sayısı ve yoğun saatler; kilitlenme ve süre riski için.
+  - name: repo
+    label: Repo
+    type: repo
+    required: true
+  - name: test_deploy_profile
+    label: Test ortamı profili
+    type: deploy_profile
+    environment: test
+    required: true
+    help: >-
+      Migration'ı test veritabanında yukarı, geri al, tekrar yukarı sırasıyla deneyen deploy profili.
+      Yalnız test ortamı profilleri kabul edilir.
+  - name: production_deploy_profile
+    label: Production profili (isteğe bağlı)
+    type: deploy_profile
+    environment: production
+    required: false
+    default: ""
+    help: >-
+      Seçilirse migration, son onaydan ve birleştirmeden sonra ayrı ve kilitli bir deploy onayıyla
+      production'a uygulanır. Boş bırakılırsa akış birleştirmeyle biter.
+graph:
+  settings:
+    gates:
+      plan_approval: false
+      boundary_check: true
+      build_test: false
+      cross_review: true
+      user_final: true
+    limit_policy:
+      on_exhausted: queue
+    max_parallel_agents: 1
+  nodes:
+    - id: schema
+      label: Şema tasarımcısı
+      position: {x: 0, y: 0}
+      config:
+        kind: agent
+        provider: claude
+        role: writer
+        writes: true
+        repo_ids: ["{{ input.repo }}"]
+        prompt_template: |
+          Sen kıdemli bir veritabanı mühendisisin. İstenen şema değişikliğini güvenli, geri alınabilir
+          ve test edilebilir biçimde tasarlayıp repoda uygulayacaksın.
+
+          ## Değişiklik
+          {{ input.change }}
+
+          ## Veritabanı
+          {{ input.dialect }}{% if input.migration_tool %} · Migration aracı: {{ input.migration_tool }}{% endif %}
+          {% if input.data_volume %}
+
+          ## Veri hacmi ve trafik
+          {{ input.data_volume }}
+          {% endif %}
+
+          ## Çalışma alanı hafızası
+          {{ memory.context }}
+
+          ## Görev
+          1. Mevcut şemayı, migration geçmişini ve bu tabloları kullanan kodu incele. Migration aracını
+             ve adlandırma kurallarını repodan tespit et.
+          2. Repodaki aracın biçiminde yeni bir migration yaz; ileri (up) ve geri alma (down) adımları
+             eksiksiz olsun. Geri alma veri kaybına yol açıyorsa bunu açıkça yaz ve kaybı önleyen yolu tercih et.
+          3. Büyük tablolarda kilitlenmeyi önle: kademeli yaklaşım (genişlet → taşı → daralt), eşzamanlı
+             indeks oluşturma, toplu (batch) veri taşıma; varsayılan değerli sütunlarda motorun
+             davranışını dikkate al.
+          4. Gerekli model/ORM ve uygulama kodu değişikliklerini yap; migration için test ekle.
+          5. Etki analizini repodaki belge düzenine uygun bir dosyaya yaz (yoksa `docs/db/` altına).
+          6. Hiçbir veritabanına bağlanma ve hiçbir ortama migration uygulama. Migration bir sonraki
+             adımda yalnız test ortamında denenecek; production'a uygulama ayrı ve kilitli bir adımdır.
+
+          ## Son mesajının biçimi
+          ## Şema değişikliği
+          (önce / sonra: tablolar, sütunlar, indeksler, kısıtlar)
+          ## Migration
+          (dosya yolları ve adım adım özet)
+          ## Geri alma planı
+          (adımlar ve veri kaybı riski)
+          ## Etki analizi
+          (etkilenen sorgular ve kod, tahmini kilit süresi, veri hacmi, geriye uyumluluk, deploy sırası)
+          ## Test
+          (eklenen testler ve test ortamında beklenen sonuç)
+          Türkçe yaz; SQL, kod ve tanımlayıcılar özgün dillerinde kalsın.
+          {% if review is defined and review.findings %}
+
+          ## İnceleme bulguları (önce bunları düzelt)
+          {{ review.findings }}
+          {% endif %}
+          {% if nodes.migrate_test is defined and nodes.migrate_test.output %}
+
+          ## Test ortamındaki son migration denemesi
+          Deneme başarısız oldu. Çıktıyı inceleyip sorunu düzelt:
+          {{ nodes.migrate_test.output }}
+          {% endif %}
+
+    - id: boundary
+      label: Sınır denetimi
+      position: {x: 300, y: 0}
+      config:
+        kind: gate
+        gate: boundary_check
+        target_node_id: schema
+
+    - id: review
+      label: Çapraz inceleme
+      position: {x: 600, y: 0}
+      config:
+        kind: gate
+        gate: cross_review
+        target_node_id: schema
+        max_rounds: 3
+        review_focus: >-
+          Veri kaybı ve geri alınabilirlik; kilitlenme ve kesinti süresi; indeksler ve sorgu planları;
+          kısıtlar ve veri bütünlüğü; geriye uyumluluk (eski ve yeni uygulama sürümü aynı anda
+          çalışabilmeli); migration ve deploy sırası; etki analizinin doğruluğu.
+
+    - id: test_approval
+      label: Test ortamı onayı
+      position: {x: 900, y: 0}
+      config:
+        kind: gate
+        gate: deploy_approval
+        target_node_id: schema
+
+    - id: migrate_test
+      label: Test ortamında migration
+      position: {x: 1200, y: 0}
+      config:
+        kind: deploy
+        profile_id: "{{ input.test_deploy_profile }}"
+
+    - id: final
+      label: Son onay
+      position: {x: 1500, y: 0}
+      config:
+        kind: gate
+        gate: user_final
+
+    - id: merge
+      label: Birleştir
+      position: {x: 1800, y: 0}
+      config:
+        kind: merge
+        strategy: squash
+        require_approval: false
+
+    - id: prod_check
+      label: Production'a uygulanacak mı?
+      position: {x: 2100, y: 0}
+      config:
+        kind: condition
+        expression: "input.production_deploy_profile | trim | length > 0"
+        max_loops: 1
+
+    - id: prod_approval
+      label: Production onayı (kilitli)
+      position: {x: 2400, y: 160}
+      config:
+        kind: gate
+        gate: deploy_approval
+
+    - id: prod_apply
+      label: Production'a uygula
+      position: {x: 2700, y: 160}
+      config:
+        kind: deploy
+        profile_id: "{{ input.production_deploy_profile }}"
+
+  edges:
+    - {id: e-schema-boundary, source: schema, target: boundary}
+    - {id: e-boundary-review, source: boundary, target: review, condition: passed}
+    - {id: e-boundary-fix, source: boundary, target: schema, condition: failed}
+    - {id: e-review-approval, source: review, target: test_approval, condition: passed}
+    - {id: e-review-fix, source: review, target: schema, condition: failed}
+    - {id: e-approval-migrate, source: test_approval, target: migrate_test, condition: passed}
+    - {id: e-migrate-final, source: migrate_test, target: final}
+    - {id: e-migrate-fix, source: migrate_test, target: schema, condition: failed}
+    - {id: e-final-merge, source: final, target: merge, condition: passed}
+    - {id: e-merge-check, source: merge, target: prod_check}
+    - {id: e-check-approval, source: prod_check, target: prod_approval, condition: "true"}
+    - {id: e-prod-apply, source: prod_approval, target: prod_apply, condition: passed}
+output_format: markdown
+output_template: |
+  # Veritabanı değişikliği
+
+  {{ nodes.schema.output }}
+
+  ## Test ortamı kanıtı
+
+  Migration yalnız test ortamı deploy profiliyle denendi.
+
+  {{ nodes.migrate_test.output }}
+
+  ## Production
+
+  {% if input.production_deploy_profile -%}
+  Production'a uygulama bu raporun dışında, ayrı ve kilitli bir adımdır: deploy onayı yalnız
+  uygulamadan verilebilir ve kapatılamaz.
+  {%- else -%}
+  Bu akış production'a hiçbir şey uygulamadı. Uygulamak için production deploy profiliyle,
+  kilitli deploy onayından geçen ayrı bir görev başlatın.
+  {%- endif %}

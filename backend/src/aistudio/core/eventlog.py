@@ -246,6 +246,19 @@ class EventLog:
             rows = (await conn.execute(stmt)).mappings().all()
         return [Event(**{**row, "severity": Severity(row["severity"])}) for row in rows]
 
+    @contextlib.asynccontextmanager
+    async def exclusive(self) -> AsyncIterator[None]:
+        """Hold off appends while the database is replaced underneath (backup restore).
+
+        Appends wait until the block exits; the tail hash is then re-read from the database so
+        the chain continues from the restored history. Do not append inside the block.
+        """
+        async with self._lock:
+            try:
+                yield
+            finally:
+                self._last_hash = None
+
     async def last_id(self) -> int:
         async with self._db.connect() as conn:
             value = (await conn.execute(sa.select(sa.func.max(events_table.c.id)))).scalar()

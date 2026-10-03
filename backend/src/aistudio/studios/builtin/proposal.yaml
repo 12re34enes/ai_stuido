@@ -1,0 +1,224 @@
+id: proposal
+name: Teklif/kapsam
+description: >-
+  Kapsam analisti işi kalemlere böler, tahminci üç noktalı süre tahmini yapar, eleştirmen eksik
+  kapsamı ve iyimser tahminleri yakalar; sentez tek bir teklif belgesi yazar. Çıktı: iş kalemleri,
+  süre ve riskler.
+icon: clipboard-list
+version: 1
+builtin: true
+inputs:
+  - name: request
+    label: İş talebi
+    type: textarea
+    required: true
+    help: Müşterinin ya da ekibin talebi; e-posta, toplantı notu ya da brief yapıştırabilirsiniz.
+  - name: constraints
+    label: Kısıtlar
+    type: textarea
+    required: false
+    default: ""
+    help: Bütçe, son tarih, teknoloji, ekip ve uyumluluk gereksinimleri.
+  - name: team
+    label: Ekip ve kapasite
+    type: textarea
+    required: false
+    default: ""
+    help: Roller ve kişi sayısı. Boş bırakılırsa tek bir tam zamanlı geliştirici varsayılır.
+  - name: unit
+    label: Tahmin birimi
+    type: select
+    required: false
+    default: Gün
+    options: [Saat, Gün, Hafta]
+graph:
+  settings:
+    gates:
+      plan_approval: false
+      boundary_check: false
+      build_test: false
+      cross_review: false
+      user_final: true
+    limit_policy:
+      on_exhausted: switch_provider
+    max_parallel_agents: 1
+  nodes:
+    - id: scope
+      label: Kapsam analisti
+      position: {x: 0, y: 0}
+      config:
+        kind: advisor
+        provider: claude
+        perspective: Kapsam analisti; talebi belirsizliksiz, teslim edilebilir iş kalemlerine böler.
+        prompt_template: |
+          Sen deneyimli bir kapsam analistisin. Talebi net, teslim edilebilir ve kabul ölçütü olan iş
+          kalemlerine böleceksin. Tahmin yapma; o bir sonraki adımın işi.
+
+          ## Talep
+          {{ input.request }}
+          {% if input.constraints %}
+
+          ## Kısıtlar
+          {{ input.constraints }}
+          {% endif %}
+
+          ## Çalışma alanı hafızası
+          {{ memory.context }}
+
+          ## Görev
+          1. Talebin amacını ve başarı ölçütlerini iki üç cümleyle yaz.
+          2. Kapsam içi ve kapsam dışı maddeleri ayrı listele; belirsiz olanları "Netleştirilmeli" diye işaretle.
+          3. İşi aşamalara ve iş kalemlerine böl (WBS). Her kalem için: kimlik (K1, K2...), açıklama,
+             kabul ölçütü, bağımlılıklar ve gereken rol. Proje yönetimi, test, dokümantasyon, deploy ve
+             devir teslimi unutma.
+          4. Varsayımlarını ve müşteriye sorulması gereken soruları listele.
+          5. Repo erişimin varsa mevcut kodu inceleyip yeniden kullanılabilecek parçaları belirt.
+
+          ## Biçim
+          Markdown; başlıklar: Amaç, Kapsam içi, Kapsam dışı, İş kalemleri (tablo), Varsayımlar,
+          Açık sorular. Türkçe yaz.
+
+    - id: estimate
+      label: Tahminci
+      position: {x: 300, y: 0}
+      config:
+        kind: advisor
+        provider: codex
+        perspective: Tahminci; üç noktalı tahmin ve belirsizliği açıkça gösterir.
+        prompt_template: |
+          Sen deneyimli bir tahmincisin. Kapsam analistinin iş kalemlerine üç noktalı süre tahmini
+          yapacaksın.
+
+          ## Talep
+          {{ input.request }}
+          {% if input.constraints %}
+
+          ## Kısıtlar
+          {{ input.constraints }}
+          {% endif %}
+
+          ## Ekip ve kapasite
+          {% if input.team %}{{ input.team }}{% else %}Belirtilmedi: tek bir tam zamanlı geliştirici varsay.{% endif %}
+
+          ## Tahmin birimi
+          {{ input.unit }}
+
+          ## Kapsam
+          {{ nodes.scope.output }}
+
+          ## Görev
+          1. Her iş kalemi için iyimser (O), en olası (M) ve kötümser (P) tahmin ver; beklenen süreyi
+             (O + 4M + P) / 6 ile hesapla. Birim: {{ input.unit }}.
+          2. Her tahminin dayanağını tek cümleyle yaz (benzer iş, karmaşıklık, bilinmeyenler).
+          3. Toplam beklenen süreyi ve standart sapmayı ((P - O) / 6) hesapla; ekip kapasitesine göre
+             takvim süresini ve kritik yolu belirt.
+          4. Belirsizliği yüksek kalemleri işaretle; önce bir keşif (spike) kalemi gerekiyorsa öner.
+
+          ## Biçim
+          Markdown; tablo sütunları: Kalem, O, M, P, Beklenen, Dayanak. Ardından: Toplamlar, Takvim ve
+          kritik yol, Yüksek belirsizlikli kalemler. Türkçe yaz.
+
+    - id: critique
+      label: Eleştirmen
+      position: {x: 600, y: 0}
+      config:
+        kind: advisor
+        provider: claude
+        perspective: Eleştirmen; eksik kapsamı, iyimser tahminleri ve gizli riskleri yakalar.
+        prompt_template: |
+          Sen bu teklifin eleştirmenisin. Amacın teklif müşteriye gitmeden önce eksik kapsamı, iyimser
+          tahminleri ve gizli riskleri yakalamak. Nazik ama tamamen dürüst ol.
+
+          ## Talep
+          {{ input.request }}
+          {% if input.constraints %}
+
+          ## Kısıtlar
+          {{ input.constraints }}
+          {% endif %}
+
+          ## Kapsam
+          {{ nodes.scope.output }}
+
+          ## Tahmin
+          {{ nodes.estimate.output }}
+
+          ## Görev
+          1. Eksik iş kalemleri: entegrasyon, veri taşıma, güvenlik, erişilebilirlik, performans, test,
+             dokümantasyon, eğitim, deploy, garanti ve bakım dönemi.
+          2. İyimser tahminler: hangi kalemler neden düşük tahmin edilmiş, önerdiğin değer ne?
+          3. Riskler: her biri için olasılık, etki, önlem ve tetikleyici işaret.
+          4. Kısıtlarla çelişkiler (bütçe, tarih, ekip).
+          5. Müşteriyle yazılı olarak netleştirilmesi gereken varsayımlar.
+          Her bulguya önem derecesi ver: kritik, yüksek, orta, düşük. Türkçe yaz.
+
+    - id: synthesis
+      label: Teklif belgesi
+      position: {x: 900, y: 0}
+      config:
+        kind: synthesis
+        provider: codex
+        devil_advocate: false
+        output_format: report
+        propose_memory: false
+        prompt_template: |
+          Kapsamı, tahmini ve eleştiriyi birleştirerek müşteriye gönderilebilecek tek bir teklif/kapsam
+          belgesi yazacaksın. Eleştirmenin kritik ve yüksek önemdeki bulgularını mutlaka işle; kabul
+          etmediklerini gerekçesiyle "Eleştiriye yanıtlar" bölümünde belirt.
+
+          ## Talep
+          {{ input.request }}
+          {% if input.constraints %}
+
+          ## Kısıtlar
+          {{ input.constraints }}
+          {% endif %}
+
+          ## Kapsam
+          {{ nodes.scope.output }}
+
+          ## Tahmin
+          {{ nodes.estimate.output }}
+
+          ## Eleştiri
+          {{ nodes.critique.output }}
+
+          ## Biçim
+          # Teklif ve kapsam: <iş adı>
+          ## Özet
+          (amaç, toplam beklenen süre ve güven aralığı, önerilen başlangıç)
+          ## Kapsam
+          ### Kapsam içi
+          ### Kapsam dışı
+          ## İş kalemleri
+          (tablo: Kalem, Açıklama, Kabul ölçütü, Beklenen süre ({{ input.unit }}), Aralık (O-P))
+          ## Takvim ve aşamalar
+          (aşamalar, kilometre taşları, kritik yol)
+          ## Riskler
+          (tablo: Risk, Olasılık, Etki, Önlem)
+          ## Varsayımlar ve müşteriden beklenenler
+          ## Açık sorular
+          ## Eleştiriye yanıtlar
+          Türkçe, sade ve profesyonel bir dille yaz.
+
+    - id: final
+      label: Son onay
+      position: {x: 1200, y: 0}
+      config:
+        kind: gate
+        gate: user_final
+
+  edges:
+    - {id: e-scope-estimate, source: scope, target: estimate}
+    - {id: e-estimate-critique, source: estimate, target: critique}
+    - {id: e-critique-synthesis, source: critique, target: synthesis}
+    - {id: e-synthesis-final, source: synthesis, target: final}
+output_format: markdown
+output_template: |
+  {{ nodes.synthesis.output }}
+
+  ---
+
+  ## Ek: Eleştirmen notları
+
+  {{ nodes.critique.output }}

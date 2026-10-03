@@ -1,0 +1,319 @@
+id: debugging
+name: Hata ayıklama
+description: >-
+  Salt okuma teşhis (kod, log, veritabanı), bağımsız hipotezler, hatayı yeniden üreten test,
+  kök neden düzeltmesi ve çapraz inceleme. Kapı: testin hatayı gerçekten yeniden ürettiğinin
+  studiod tarafından kanıtlanması. Çıktı: teşhis raporu ve düzeltme.
+icon: bug
+version: 1
+builtin: true
+inputs:
+  - name: symptom
+    label: Hata belirtisi
+    type: textarea
+    required: true
+    help: Ne oluyor, ne olması gerekiyordu? Ne zamandan beri?
+  - name: repro_steps
+    label: Yeniden üretme adımları
+    type: textarea
+    required: false
+    default: ""
+  - name: logs
+    label: Log ve hata çıktısı
+    type: textarea
+    required: false
+    default: ""
+    help: Yığın izi ya da log satırları. Gizli bilgiler otomatik maskelenir.
+  - name: environment
+    label: Hatanın görüldüğü ortam
+    type: select
+    required: false
+    default: Yerel
+    options: [Yerel, Test, Production]
+    help: Teşhis bu ortamda yalnız okuma yapar; production'da yalnız okuma sorguları çalışır.
+  - name: repo
+    label: Repo
+    type: repo
+    required: true
+graph:
+  settings:
+    gates:
+      plan_approval: false
+      boundary_check: true
+      build_test: true
+      cross_review: true
+      user_final: true
+    limit_policy:
+      on_exhausted: queue
+    max_parallel_agents: 1
+  nodes:
+    - id: diagnose
+      label: Teşhis (salt okuma)
+      position: {x: 0, y: 0}
+      config:
+        kind: agent
+        provider: claude
+        role: planner
+        writes: false
+        repo_ids: ["{{ input.repo }}"]
+        tool_names: [memory_read, remote_exec, db_query, ask_user, report_status]
+        boundaries:
+          sandbox: read_only
+          remote_access: read
+        prompt_template: |
+          Sen deneyimli bir hata ayıklama uzmanısın. Bu aşamada YALNIZ TEŞHİS yapıyorsun: kod
+          değiştirme, dosya yazma ve hiçbir sistemde yazma işlemi yapma.
+
+          ## Belirti
+          {{ input.symptom }}
+          {% if input.repro_steps %}
+
+          ## Yeniden üretme adımları
+          {{ input.repro_steps }}
+          {% endif %}
+          {% if input.logs %}
+
+          ## Log ve hata çıktısı
+          ```text
+          {{ input.logs }}
+          ```
+          {% endif %}
+
+          ## Ortam
+          {{ input.environment }}
+
+          ## Çalışma alanı hafızası
+          {{ memory.context }}
+
+          ## Yöntem
+          1. İlgili kodu oku; hata yolunu girişten hatanın oluştuğu yere kadar izle.
+          2. Gerekirse logları ve veritabanını yalnız okuyarak incele: uzak sunucularda `remote_exec`,
+             veritabanında `db_query` aracını kullan (yalnız okuma komutları ve SELECT sorguları).
+             {% if input.environment == "Production" -%}
+             Ortam production: her sorguyu dar tut (LIMIT, zaman aralığı) ve kişisel veriyi çıktıya kopyalama.
+             {%- endif %}
+          3. İlgili dosyaların son değişikliklerini incele (`git log -p`); hata ne zaman başlamış olabilir?
+          4. Eksik bilgi kritikse `ask_user` ile kullanıcıya kısa ve net bir soru sor.
+          5. Topladığın her kanıtı kaynağıyla birlikte kaydet.
+
+          ## Son mesajının biçimi
+          ## Gözlemler
+          (kanıtlarla: `dosya:satır`, log satırı, sorgu sonucu)
+          ## Hata yolu
+          (girişten hataya adım adım)
+          ## Şüpheli bölgeler
+          ## Bilinmeyenler
+          (hangi bilgi eksik ve nasıl elde edilir)
+          Türkçe yaz; kod ve tanımlayıcılar özgün dillerinde kalsın.
+
+    - id: hypotheses
+      label: Hipotezler
+      position: {x: 300, y: 0}
+      config:
+        kind: advisor
+        provider: codex
+        perspective: Bağımsız ikinci görüş; alternatif kök nedenleri ve ayırt edici deneyleri arar.
+        prompt_template: |
+          Sen bağımsız bir ikinci görüş uzmanısın. Teşhis raporunu okuyup olası kök nedenleri hipotezler
+          halinde sıralayacaksın. Kod yazma.
+
+          ## Belirti
+          {{ input.symptom }}
+
+          ## Teşhis raporu
+          {{ nodes.diagnose.output }}
+
+          ## Görev
+          1. 3-5 hipotez yaz. Her biri için: açıklama, destekleyen kanıt, çelişen kanıt ve olasılık
+             (yüksek, orta, düşük).
+          2. Her hipotezi doğrulayacak ya da çürütecek en ucuz deneyi öner: hangi girdi, hangi adım,
+             beklenen sonuç.
+          3. En olası hipotezi seç ve hatayı yeniden üretecek otomatik testi tarif et: test edilen birim
+             ya da uç nokta, girdi, beklenen davranış ve şu anki davranış.
+          4. Teşhiste atlanmış olabilecek noktaları belirt.
+          Türkçe yaz.
+
+    - id: repro_test
+      label: Hatayı yeniden üreten test
+      position: {x: 600, y: 0}
+      config:
+        kind: agent
+        provider: claude
+        role: tester
+        writes: true
+        repo_ids: ["{{ input.repo }}"]
+        prompt_template: |
+          Sen hatayı yeniden üreten bir test yazacaksın. Bu adımda HATAYI DÜZELTME; yalnız testi yaz.
+
+          ## Belirti
+          {{ input.symptom }}
+
+          ## Teşhis
+          {{ nodes.diagnose.output }}
+
+          ## Hipotezler ve test tarifi
+          {{ nodes.hypotheses.output }}
+
+          ## Görev
+          1. Repodaki test çatısını ve kurallarını kullanarak en olası hipotezi hedefleyen, olabildiğince
+             küçük bir otomatik test yaz. Test şu anki kodda, belirtiyle aynı nedenle BAŞARISIZ olmalı:
+             beklenen davranışı doğrulayan bir assertion; import ya da sözdizimi hatası değil.
+          2. Repo kökünde `.aistudio/repro.sh` dosyasını oluştur. İlk satırı `#!/bin/sh`, ikinci satırı
+             `set -e` olsun ve yalnız bu testi çalıştıran tek bir komut içersin (örn.
+             `pytest -q tests/test_odeme.py::test_bos_sepet` ya da `npx vitest run src/sepet.test.ts`).
+          3. Betiği kendin çalıştır ve testin beklenen nedenle başarısız olduğunu doğrula.
+          4. Son mesajında testin yolunu, `.aistudio/repro.sh` içeriğini ve gözlenen hata çıktısını yaz.
+             Son mesajını Türkçe yaz; kod ve tanımlayıcılar özgün dillerinde kalsın.
+
+          Kanıt kapısını studiod çalıştırır: `.aistudio/repro.sh` başarısız olursa hata yeniden üretilmiş
+          sayılır; test geçerse ya da betik yoksa kapı başarısız olur ve bu adıma geri dönülür.
+          {% if gate is defined and gate.repro_gate is defined and gate.repro_gate.evidence %}
+
+          ## Önceki deneme
+          Kanıt kapısı testin hatayı yeniden üretmediğini gösterdi. Kapı çıktısı:
+          {{ gate.repro_gate.evidence }}
+          Testi gözden geçir: gerçekten hatalı davranışı mı doğruluyor?
+          {% endif %}
+
+    - id: repro_gate
+      label: Yeniden üretme kanıtı
+      position: {x: 900, y: 0}
+      config:
+        kind: gate
+        gate: custom_command
+        command: "sh -c 'test -f .aistudio/repro.sh && ! sh .aistudio/repro.sh'"
+        target_node_id: repro_test
+        max_rounds: 3
+
+    - id: fix
+      label: Düzeltme
+      position: {x: 1200, y: 0}
+      config:
+        kind: agent
+        provider: claude
+        role: writer
+        writes: true
+        repo_ids: ["{{ input.repo }}"]
+        prompt_template: |
+          Sen hatayı kök nedeninden düzelteceksin. Hatayı yeniden üreten test yazıldı ve şu anda
+          başarısız oluyor (studiod bunu doğruladı).
+
+          ## Belirti
+          {{ input.symptom }}
+
+          ## Teşhis
+          {{ nodes.diagnose.output }}
+
+          ## Hipotezler
+          {{ nodes.hypotheses.output }}
+
+          ## Yeniden üreten test
+          {{ nodes.repro_test.output }}
+
+          ## Kurallar
+          - Belirtiyi bastırma; kök nedeni düzelt. Kök neden hipotezden farklı çıkarsa bunu açıkça yaz.
+          - Yeniden üreten testi zayıflatma ya da silme; test artık geçmeli.
+          - Değişikliği küçük ve okunur tut; aynı hatanın başka yerlerde tekrarlanıp tekrarlanmadığını kontrol et.
+          - Bütün test paketini ve lint'i yerelde çalıştır.
+          - İşin sonunda `.aistudio/repro.sh` dosyasını sil; test repoda kalır.
+
+          ## Son mesajının biçimi
+          ## Kök neden
+          ## Düzeltme
+          (değişen dosyalar ve neden)
+          ## Doğrulama
+          (çalıştırdığın komutlar ve sonuçları)
+          ## Regresyon riski
+          Türkçe yaz; kod ve tanımlayıcılar özgün dillerinde kalsın.
+          {% if review is defined and review.findings %}
+
+          ## İnceleme bulguları (önce bunları düzelt)
+          {{ review.findings }}
+          {% endif %}
+          {% if gate is defined and gate.build is defined and gate.build.evidence %}
+
+          ## Son build/test kanıtı
+          {{ gate.build.evidence }}
+          {% endif %}
+
+    - id: boundary
+      label: Sınır denetimi
+      position: {x: 1500, y: 0}
+      config:
+        kind: gate
+        gate: boundary_check
+        target_node_id: fix
+
+    - id: build
+      label: Build/test kanıtı
+      position: {x: 1800, y: 0}
+      config:
+        kind: gate
+        gate: build_test
+        target_node_id: fix
+
+    - id: review
+      label: Çapraz inceleme
+      position: {x: 2100, y: 0}
+      config:
+        kind: gate
+        gate: cross_review
+        target_node_id: fix
+        max_rounds: 3
+        review_focus: >-
+          Kök neden gerçekten giderildi mi, yoksa yalnız belirti mi bastırıldı? Yeniden üreten test
+          hatalı davranışı doğru biçimde yakalıyor mu? Regresyon riski, eksik kenar durumlar ve aynı
+          hatanın başka yerlerde tekrarı.
+
+    - id: final
+      label: Son onay
+      position: {x: 2400, y: 0}
+      config:
+        kind: gate
+        gate: user_final
+
+    - id: merge
+      label: Birleştir
+      position: {x: 2700, y: 0}
+      config:
+        kind: merge
+        strategy: squash
+        require_approval: false
+
+  edges:
+    - {id: e-diagnose-hypotheses, source: diagnose, target: hypotheses}
+    - {id: e-hypotheses-repro, source: hypotheses, target: repro_test}
+    - {id: e-repro-gate, source: repro_test, target: repro_gate}
+    - {id: e-gate-fix, source: repro_gate, target: fix, condition: passed}
+    - {id: e-gate-retry, source: repro_gate, target: repro_test, condition: failed}
+    - {id: e-fix-boundary, source: fix, target: boundary}
+    - {id: e-boundary-build, source: boundary, target: build, condition: passed}
+    - {id: e-boundary-fix, source: boundary, target: fix, condition: failed}
+    - {id: e-build-review, source: build, target: review, condition: passed}
+    - {id: e-build-fix, source: build, target: fix, condition: failed}
+    - {id: e-review-final, source: review, target: final, condition: passed}
+    - {id: e-review-fix, source: review, target: fix, condition: failed}
+    - {id: e-final-merge, source: final, target: merge, condition: passed}
+output_format: markdown
+output_template: |
+  # Hata ayıklama raporu
+
+  ## Belirti
+
+  {{ input.symptom }}
+
+  ## Teşhis
+
+  {{ nodes.diagnose.output }}
+
+  ## Hipotezler
+
+  {{ nodes.hypotheses.output }}
+
+  ## Hatayı yeniden üreten test
+
+  {{ nodes.repro_test.output }}
+
+  ## Düzeltme
+
+  {{ nodes.fix.output }}

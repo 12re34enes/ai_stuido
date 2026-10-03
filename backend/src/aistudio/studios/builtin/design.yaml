@@ -1,0 +1,242 @@
+id: design
+name: Tasarım
+description: >-
+  Tasarımcı bir tasarım notu hazırlar, uygulayıcı bileşeni ya da prototipi kodlar, diğer model
+  inceler. studiod ekran görüntülerini kendisi üretir. Çıktı: tasarım notu, bileşen/prototip ve
+  ekran görüntüsü. Kapılar: görsel kanıt ve son onay.
+icon: palette
+version: 1
+builtin: true
+inputs:
+  - name: brief
+    label: Tasarım isteği
+    type: textarea
+    required: true
+    help: Ne tasarlanacak ve neden? Kullanıcı kim, hangi sorunu çözüyoruz?
+  - name: screens
+    label: Ekranlar ve bileşenler
+    type: textarea
+    required: false
+    default: ""
+    help: Kapsamdaki ekranlar, bileşenler ya da akışlar.
+  - name: references
+    label: Referanslar ve marka kuralları
+    type: textarea
+    required: false
+    default: ""
+    help: Örnek uygulamalar, bağlantılar, renk ve tipografi kuralları.
+  - name: platform
+    label: Platform
+    type: select
+    required: false
+    default: Web
+    options: [Web, Masaüstü (macOS), Mobil, Çok platformlu]
+  - name: repo
+    label: Hedef repo
+    type: repo
+    required: true
+  - name: screenshot_command
+    label: Ekran görüntüsü komutu
+    type: text
+    required: true
+    help: >-
+      Görsel kanıt kapısında studiod'un worktree'de çalıştıracağı komut. Ekran görüntülerini
+      üretmeli ve başarıda 0 ile çıkmalı. Örn. "pnpm test:screenshots".
+graph:
+  settings:
+    gates:
+      plan_approval: false
+      boundary_check: true
+      build_test: true
+      cross_review: true
+      user_final: true
+    limit_policy:
+      on_exhausted: queue
+    max_parallel_agents: 1
+  nodes:
+    - id: designer
+      label: Tasarımcı
+      position: {x: 0, y: 0}
+      config:
+        kind: advisor
+        provider: claude
+        perspective: Kıdemli ürün ve arayüz tasarımcısı; kullanılabilirlik, tutarlılık ve erişilebilirlik.
+        prompt_template: |
+          Sen kıdemli bir ürün ve arayüz tasarımcısısın. Kod yazmayacaksın; uygulayıcının tereddütsüz
+          uygulayabileceği bir tasarım notu hazırlayacaksın. Repodaki mevcut arayüzü ve tasarım sistemini
+          (bileşenler, stil belirteçleri, hareket kuralları) salt okuyarak incele.
+
+          ## İstek
+          {{ input.brief }}
+          {% if input.screens %}
+
+          ## Ekranlar ve bileşenler
+          {{ input.screens }}
+          {% endif %}
+          {% if input.references %}
+
+          ## Referanslar ve marka kuralları
+          {{ input.references }}
+          {% endif %}
+
+          ## Platform
+          {{ input.platform }}
+
+          ## Çalışma alanı hafızası
+          {{ memory.context }}
+
+          ## Tasarım notu başlıkları
+          1. Amaç ve kullanıcı senaryoları (kim, ne yapmak istiyor, başarı ölçütü)
+          2. Bilgi mimarisi ve akış (adım adım; istersen bir mermaid flowchart)
+          3. Ekran ve bileşen yapısı (hiyerarşi, yerleşim ızgarası, boşluklar)
+          4. Görsel dil: mevcut belirteçlerden renk, tipografi, köşe yarıçapı, gölge. Yeni belirteç
+             gerekiyorsa gerekçesiyle öner; değer uydurma.
+          5. Durumlar: varsayılan, üzerine gelme, odak, devre dışı, yükleniyor, boş, hata, başarı
+          6. Hareket ve mikro etkileşimler (süre, eğri, neyin canlandığı; hareket azaltma tercihi)
+          7. Duyarlı davranış (kırılım noktaları)
+          8. Erişilebilirlik (WCAG 2.2 AA: kontrast, klavye, ekran okuyucu etiketleri)
+          9. Arayüz metinlerinin tam hali
+          10. Kabul ölçütleri: inceleyenin tek tek işaretleyeceği maddeler
+          11. Uygulama önerisi: dokunulacak dosyalar ve bileşenler
+          Türkçe yaz.
+
+    - id: implement
+      label: Uygulayıcı
+      position: {x: 300, y: 0}
+      config:
+        kind: agent
+        provider: codex
+        role: writer
+        writes: true
+        repo_ids: ["{{ input.repo }}"]
+        prompt_template: |
+          Sen deneyimli bir ön yüz geliştiricisisin. Tasarımcının notunu eksiksiz uygulayacaksın.
+
+          ## Tasarım notu
+          {{ nodes.designer.output }}
+
+          ## İstek
+          {{ input.brief }}
+          {% if input.screens %}
+
+          ## Ekranlar ve bileşenler
+          {{ input.screens }}
+          {% endif %}
+
+          ## Platform
+          {{ input.platform }}
+
+          ## Kurallar
+          - Repodaki tasarım sistemini, bileşenleri ve stil belirteçlerini kullan; renk ya da ölçü
+            değeri uydurma. Belirteç eksikse tek bir yerde tanımla.
+          - Tasarım notundaki bütün durumları uygula: varsayılan, odak, devre dışı, yükleniyor, boş, hata.
+          - Erişilebilirlik: anlamlı etiketler, klavyeyle tam kullanım, yeterli kontrast, hareket azaltma
+            tercihine uyum.
+          - Görsel kanıt kapısında studiod şu komutu çalıştıracak: `{{ input.screenshot_command }}`.
+            Yeni ekranların bu komutun ürettiği ekran görüntülerinde yer aldığından emin ol (gerekirse
+            hikâye, örnek sayfa ya da görsel test ekle).
+          - Değişikliği küçük ve okunur tut; ilgisiz dosyalara dokunma. Lint ve testleri yerelde çalıştır.
+          - Bitirdiğinde değişen dosyaları, kabul ölçütlerinin her birinin durumunu ve bilinen eksikleri özetle.
+          Son mesajını Türkçe yaz; kod ve tanımlayıcılar özgün dillerinde kalsın.
+          {% if review is defined and review.findings %}
+
+          ## İnceleme bulguları (önce bunları düzelt)
+          {{ review.findings }}
+          {% endif %}
+          {% if gate is defined and gate.build is defined and gate.build.evidence %}
+
+          ## Son build/test kanıtı
+          {{ gate.build.evidence }}
+          {% endif %}
+          {% if gate is defined and gate.visual is defined and gate.visual.evidence %}
+
+          ## Son görsel kanıt çıktısı
+          {{ gate.visual.evidence }}
+          {% endif %}
+
+    - id: boundary
+      label: Sınır denetimi
+      position: {x: 600, y: 0}
+      config:
+        kind: gate
+        gate: boundary_check
+        target_node_id: implement
+
+    - id: build
+      label: Build/test kanıtı
+      position: {x: 900, y: 0}
+      config:
+        kind: gate
+        gate: build_test
+        target_node_id: implement
+
+    - id: review
+      label: Çapraz inceleme
+      position: {x: 1200, y: 0}
+      config:
+        kind: gate
+        gate: cross_review
+        target_node_id: implement
+        max_rounds: 3
+        review_focus: >-
+          Tasarım notuna ve kabul ölçütlerine birebir uyum; tasarım sistemi belirteçlerinin kullanımı;
+          bütün durumların (boş, yükleniyor, hata, odak, devre dışı) uygulanması; erişilebilirlik
+          (WCAG 2.2 AA); duyarlı yerleşim; gereksiz karmaşıklık.
+
+    - id: visual
+      label: Görsel kanıt
+      position: {x: 1500, y: 0}
+      config:
+        kind: gate
+        gate: custom_command
+        command: "{{ input.screenshot_command }}"
+        target_node_id: implement
+        max_rounds: 2
+
+    - id: final
+      label: Son onay
+      position: {x: 1800, y: 0}
+      config:
+        kind: gate
+        gate: user_final
+
+    - id: merge
+      label: Birleştir
+      position: {x: 2100, y: 0}
+      config:
+        kind: merge
+        strategy: squash
+        require_approval: false
+
+  edges:
+    - {id: e-designer-implement, source: designer, target: implement}
+    - {id: e-implement-boundary, source: implement, target: boundary}
+    - {id: e-boundary-build, source: boundary, target: build, condition: passed}
+    - {id: e-boundary-fix, source: boundary, target: implement, condition: failed}
+    - {id: e-build-review, source: build, target: review, condition: passed}
+    - {id: e-build-fix, source: build, target: implement, condition: failed}
+    - {id: e-review-visual, source: review, target: visual, condition: passed}
+    - {id: e-review-fix, source: review, target: implement, condition: failed}
+    - {id: e-visual-final, source: visual, target: final, condition: passed}
+    - {id: e-visual-fix, source: visual, target: implement, condition: failed}
+    - {id: e-final-merge, source: final, target: merge, condition: passed}
+output_format: markdown
+output_template: |
+  # Tasarım: {{ input.brief | replace("\n", " ") | truncate(80) }}
+
+  ## Tasarım notu
+
+  {{ nodes.designer.output }}
+
+  ## Uygulama özeti
+
+  {{ nodes.implement.output }}
+
+  ## Görsel kanıt
+
+  Ekran görüntüleri studiod tarafından `{{ input.screenshot_command }}` komutuyla üretildi ve kapı
+  kanıtı olarak saklandı.
+  {% if gate is defined and gate.visual is defined and gate.visual.evidence %}
+
+  {{ gate.visual.evidence }}
+  {% endif %}

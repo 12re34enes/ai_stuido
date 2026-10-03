@@ -1,0 +1,294 @@
+id: architecture
+name: Mimari tasarım
+description: >-
+  Kurul: Claude ve Codex birbirinden bağımsız mimari görüş yazar, karşı tez bu görüşleri zorlar,
+  sentez tek bir karar kaydına dönüşür. Çıktı: karar kaydı (ADR), Mermaid diyagramı ve hafızaya
+  karar önerisi.
+icon: blocks
+version: 1
+builtin: true
+inputs:
+  - name: question
+    label: Tasarım sorusu
+    type: textarea
+    required: true
+    help: >-
+      Karar verilmesi gereken mimari soru. Örn. "Bildirim servisi kuyruk tabanlı mı olmalı,
+      doğrudan çağrıyla mı?"
+  - name: context
+    label: Bağlam ve kısıtlar
+    type: textarea
+    required: false
+    default: ""
+    help: Mevcut durum, ölçek, ekip, bütçe, son tarih ve uyulması gereken standartlar.
+  - name: options
+    label: Değerlendirilecek seçenekler
+    type: textarea
+    required: false
+    default: ""
+    help: Aklınızdaki alternatifler. Boş bırakılırsa danışmanlar kendi seçeneklerini önerir.
+  - name: quality_attributes
+    label: Öncelikli kalite özellikleri
+    type: text
+    required: false
+    default: Güvenilirlik, sürdürülebilirlik, maliyet, geliştirme hızı
+    help: Seçenekler bu özelliklere göre puanlanır; önem sırasıyla yazın.
+graph:
+  settings:
+    gates:
+      plan_approval: false
+      boundary_check: false
+      build_test: false
+      cross_review: false
+      user_final: true
+    limit_policy:
+      on_exhausted: queue
+    max_parallel_agents: 2
+  nodes:
+    - id: fanout
+      label: Bağımsız görüşler
+      position: {x: 0, y: 0}
+      config:
+        kind: parallel
+
+    - id: advisor_claude
+      label: Claude görüşü
+      position: {x: 300, y: -140}
+      config:
+        kind: advisor
+        provider: claude
+        perspective: Bağımsız mimar; sade ve kanıtlanmış çözümleri, uzun vadeli bakımı önceler.
+        prompt_template: |
+          Sen deneyimli bir yazılım mimarısın. Aşağıdaki mimari soruya, kurulun diğer danışmanından
+          bağımsız olarak görüş yazacaksın. Diğer görüşü görmüyorsun; kendi değerlendirmeni yap.
+          Kod yazma; gerekiyorsa repodaki kodu yalnız oku.
+
+          ## Çalışma alanı hafızası
+          {{ memory.context }}
+
+          ## Tasarım sorusu
+          {{ input.question }}
+          {% if input.context %}
+
+          ## Bağlam ve kısıtlar
+          {{ input.context }}
+          {% endif %}
+          {% if input.options %}
+
+          ## Değerlendirilecek seçenekler
+          {{ input.options }}
+          {% endif %}
+
+          ## Öncelikli kalite özellikleri
+          {{ input.quality_attributes }}
+
+          ## Görev
+          1. Sorunu ve karar kriterlerini kendi cümlelerinle netleştir; varsayımlarını açıkça yaz.
+          2. Verilenler dahil en az üç gerçekçi seçenek değerlendir. Her biri için: nasıl çalışır,
+             artıları, eksileri, riskleri, yaklaşık maliyet ve karmaşıklık.
+          3. Seçenekleri kalite özelliklerine göre bir tabloda 1-5 arası puanla ve her puanı gerekçelendir.
+          4. Önerini tek ve net bir cümleyle ver; hangi koşullarda önerinin değişeceğini belirt.
+          5. Karar dizinindeki mevcut kararlarla çelişki varsa açıkça işaretle.
+          6. İddialarını mümkünse koddan doğrula ve ilgili dosyaları `yol:satır` biçiminde göster.
+
+          ## Biçim
+          Markdown; başlıklar: Sorun ve kriterler, Varsayımlar, Seçenekler, Karşılaştırma tablosu,
+          Öneri, Açık sorular.
+          Türkçe yaz; kod, komut ve tanımlayıcılar özgün dillerinde kalsın.
+
+    - id: advisor_codex
+      label: Codex görüşü
+      position: {x: 300, y: 140}
+      config:
+        kind: advisor
+        provider: codex
+        perspective: Pragmatik uygulayıcı; teslim süresi, operasyon ve işletme maliyetine odaklanır.
+        prompt_template: |
+          Sen sahada çok sistem işletmiş pragmatik bir mimarsın. Aşağıdaki mimari soruya, kurulun diğer
+          danışmanından bağımsız olarak görüş yazacaksın. Özellikle uygulanabilirliğe, operasyon yüküne,
+          izlenebilirliğe ve geri dönüş maliyetine dikkat et. Kod yazma; gerekiyorsa repodaki kodu yalnız oku.
+
+          ## Çalışma alanı hafızası
+          {{ memory.context }}
+
+          ## Tasarım sorusu
+          {{ input.question }}
+          {% if input.context %}
+
+          ## Bağlam ve kısıtlar
+          {{ input.context }}
+          {% endif %}
+          {% if input.options %}
+
+          ## Değerlendirilecek seçenekler
+          {{ input.options }}
+          {% endif %}
+
+          ## Öncelikli kalite özellikleri
+          {{ input.quality_attributes }}
+
+          ## Görev
+          1. Sorunu ve karar kriterlerini netleştir; varsayımlarını açıkça yaz.
+          2. Verilenler dahil en az üç gerçekçi seçenek değerlendir. Her biri için: uygulama adımları,
+             işletme yükü (izleme, ölçekleme, olay müdahalesi), riskler ve geri dönüş maliyeti.
+          3. Seçenekleri kalite özelliklerine göre bir tabloda 1-5 arası puanla ve her puanı gerekçelendir.
+          4. Önerini tek ve net bir cümleyle ver; ilk adım olarak ne yapılacağını belirt.
+          5. Karar dizinindeki mevcut kararlarla çelişki varsa açıkça işaretle.
+          6. İddialarını mümkünse koddan doğrula ve ilgili dosyaları `yol:satır` biçiminde göster.
+
+          ## Biçim
+          Markdown; başlıklar: Sorun ve kriterler, Varsayımlar, Seçenekler, Karşılaştırma tablosu,
+          Öneri, Açık sorular.
+          Türkçe yaz; kod, komut ve tanımlayıcılar özgün dillerinde kalsın.
+
+    - id: gather
+      label: Görüşleri topla
+      position: {x: 600, y: 0}
+      config:
+        kind: join
+        mode: all
+
+    - id: counter
+      label: Karşı tez
+      position: {x: 900, y: 0}
+      config:
+        kind: advisor
+        provider: codex
+        perspective: Karşı tez; şeytanın avukatı olarak her iki görüşü de zorlar.
+        prompt_template: |
+          Sen bu kurulun karşı tez danışmanısın (şeytanın avukatı). Görevin iki bağımsız görüşü zorlamak:
+          zayıf varsayımları, gözden kaçan riskleri ve güçlü bir alternatifi ortaya koymak.
+          Nazik ama tamamen dürüst ol; sırf uzlaşmak için onaylama.
+
+          ## Tasarım sorusu
+          {{ input.question }}
+          {% if input.context %}
+
+          ## Bağlam ve kısıtlar
+          {{ input.context }}
+          {% endif %}
+
+          ## Görüş A (Claude)
+          {{ nodes.advisor_claude.output }}
+
+          ## Görüş B (Codex)
+          {{ nodes.advisor_codex.output }}
+
+          ## Görev
+          1. İki görüşün uzlaştığı ve ayrıştığı noktaları kısaca listele.
+          2. Her görüş için en zayıf üç varsayımı ya da kanıtsız iddiayı belirt ve neden zayıf olduğunu açıkla.
+          3. Önerilerin başarısız olacağı somut senaryolar yaz: yük artışı, kısmi arıza, ekip değişikliği,
+             maliyet, güvenlik, geri dönüş ihtiyacı.
+          4. Değerlendirilmemiş ya da hafife alınmış en güçlü alternatifi savun.
+          5. Karar verilmeden önce yanıtlanması gereken soruları ve ölçülmesi gereken değerleri sırala.
+
+          ## Biçim
+          Markdown; başlıklar: Uzlaşma ve ayrışma, Zayıf varsayımlar, Başarısızlık senaryoları,
+          Güçlü alternatif, Karar öncesi sorular.
+          Türkçe yaz.
+
+    - id: synthesis
+      label: Sentez ve karar kaydı
+      position: {x: 1200, y: 0}
+      config:
+        kind: synthesis
+        provider: claude
+        devil_advocate: false
+        output_format: decision
+        propose_memory: true
+        prompt_template: |
+          Sen bu mimari kurulun sentezcisisin. İki bağımsız görüşü ve karşı tezi tartıp tek bir karar kaydı
+          (ADR) yazacaksın. Karar net olmalı: belirsizlik varsa kararı sulandırma, risk olarak yaz.
+
+          ## Çalışma alanı hafızası
+          {{ memory.context }}
+
+          ## Tasarım sorusu
+          {{ input.question }}
+          {% if input.context %}
+
+          ## Bağlam ve kısıtlar
+          {{ input.context }}
+          {% endif %}
+
+          ## Öncelikli kalite özellikleri
+          {{ input.quality_attributes }}
+
+          ## Görüş A (Claude)
+          {{ nodes.advisor_claude.output }}
+
+          ## Görüş B (Codex)
+          {{ nodes.advisor_codex.output }}
+
+          ## Karşı tez
+          {{ nodes.counter.output }}
+
+          ## Görev
+          Aşağıdaki şablonla eksiksiz bir ADR yaz. Baştaki ön bilgi bölümü makinece okunur; alan adlarını
+          değiştirme. Mevcut bir kararın yerini alıyorsan "Yerini aldığı karar" satırına o kararın dosya
+          yolunu yaz.
+
+          ```markdown
+          ---
+          title: <kısa karar başlığı>
+          date: <bugünün tarihi, YYYY-MM-DD>
+          status: önerildi
+          summary: <kararın tek cümlelik özeti>
+          ---
+
+          # <Karar başlığı>
+
+          Yerini aldığı karar: <yok | decisions/...md>
+
+          ## Bağlam
+          ## Karar kriterleri
+          ## Değerlendirilen seçenekler
+          (her seçenek için artılar, eksiler ve neden seçilmediği)
+          ## Karar
+          ## Gerekçe
+          (karşı tezdeki her itiraza tek tek yanıt ver)
+          ## Sonuçlar
+          (olumlu, olumsuz ve kabul edilen ödünler)
+          ## Riskler ve önlemler
+          ## Uygulama adımları
+          (sıralı; her adım küçük ve doğrulanabilir)
+          ## Diyagram
+          (bileşenleri ve veri akışını gösteren bir mermaid bloğu: flowchart LR ya da sequenceDiagram)
+          ## Açık sorular
+          ```
+
+          Yanıtında yalnız ADR'nin kendisini ver (dış kod bloğu olmadan). Türkçe yaz; kod ve
+          tanımlayıcılar özgün dillerinde kalsın.
+
+    - id: final
+      label: Son onay
+      position: {x: 1500, y: 0}
+      config:
+        kind: gate
+        gate: user_final
+
+  edges:
+    - {id: e-fanout-claude, source: fanout, target: advisor_claude}
+    - {id: e-fanout-codex, source: fanout, target: advisor_codex}
+    - {id: e-claude-gather, source: advisor_claude, target: gather}
+    - {id: e-codex-gather, source: advisor_codex, target: gather}
+    - {id: e-gather-counter, source: gather, target: counter}
+    - {id: e-counter-synthesis, source: counter, target: synthesis}
+    - {id: e-synthesis-final, source: synthesis, target: final}
+output_format: markdown
+output_template: |
+  {{ nodes.synthesis.output }}
+
+  ---
+
+  ## Ek A: Claude görüşü
+
+  {{ nodes.advisor_claude.output }}
+
+  ## Ek B: Codex görüşü
+
+  {{ nodes.advisor_codex.output }}
+
+  ## Ek C: Karşı tez
+
+  {{ nodes.counter.output }}

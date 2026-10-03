@@ -1,0 +1,152 @@
+id: documentation
+name: Dokümantasyon
+description: >-
+  Yazar belgeyi repodaki kodu okuyarak yazar; diğer model belgedeki her iddiayı, komutu ve örneği
+  kodla karşılaştırarak doğrular. Kapı: tutarlılık kontrolü. Çıktı: doküman.
+icon: book-open
+version: 1
+builtin: true
+inputs:
+  - name: subject
+    label: Belgelenecek konu
+    type: textarea
+    required: true
+    help: Örn. "Ödeme servisinin kurulumu ve yerelde çalıştırılması".
+  - name: doc_type
+    label: Belge türü
+    type: select
+    required: false
+    default: Kullanım kılavuzu
+    options: [Kullanım kılavuzu, README, API referansı, Mimari genel bakış, Runbook, Katkı rehberi, Değişiklik notları]
+  - name: audience
+    label: Hedef okur
+    type: select
+    required: false
+    default: Geliştirici
+    options: [Geliştirici, Son kullanıcı, Operasyon / DevOps, Yönetici]
+  - name: language
+    label: Belge dili
+    type: select
+    required: false
+    default: Türkçe
+    options: [Türkçe, İngilizce]
+  - name: target_path
+    label: Hedef dosya
+    type: text
+    required: false
+    default: ""
+    help: Örn. docs/kurulum.md. Boş bırakılırsa yazar repodaki belge düzenine göre seçer.
+  - name: repo
+    label: Repo
+    type: repo
+    required: true
+graph:
+  settings:
+    gates:
+      plan_approval: false
+      boundary_check: true
+      build_test: false
+      cross_review: true
+      user_final: true
+    limit_policy:
+      on_exhausted: queue
+    max_parallel_agents: 1
+  nodes:
+    - id: writer
+      label: Yazar
+      position: {x: 0, y: 0}
+      config:
+        kind: agent
+        provider: claude
+        role: writer
+        writes: true
+        repo_ids: ["{{ input.repo }}"]
+        prompt_template: |
+          Sen teknik yazarlıkta deneyimli bir geliştiricisin. Aşağıdaki konuyu repodaki gerçek koda
+          dayanarak belgeleyeceksin. Belgedeki her bilgi koddan doğrulanabilir olmalı.
+
+          ## Konu
+          {{ input.subject }}
+
+          ## Belge
+          - Tür: {{ input.doc_type }}
+          - Hedef okur: {{ input.audience }}
+          - Dil: {{ input.language }}
+          - Dosya: {% if input.target_path %}`{{ input.target_path }}`{% else %}repodaki belge düzenine uygun bir yol seç{% endif %}
+
+          ## Çalışma alanı hafızası
+          {{ memory.context }}
+
+          ## Kurallar
+          - Önce ilgili kodu, yapılandırmayı, betikleri ve mevcut belgeleri oku. Var olan bir belgeyi
+            güncelliyorsan yapısını koru ve eskimiş bölümleri düzelt.
+          - Her komutu, yapılandırma anahtarını, API adını, parametreyi ve varsayılan değeri koddan doğrula.
+            Doğrulayamadığın hiçbir şeyi yazma; gerekiyorsa "Bilinmeyenler" olarak raporla.
+          - Mümkünse komutları gerçekten çalıştırıp çıktılarını kontrol et; örnek kodları çalışır halde yaz.
+          - Okura göre yaz: {{ input.audience }} için gereksiz ayrıntıdan kaçın, gerekli ön bilgiyi ver.
+          - Yapı: kısa giriş, ön koşullar, adım adım bölümler, örnekler, sorun giderme ve ilgili belgelere bağlantılar.
+          - Belgede gizli bilgi (parola, anahtar, belirteç) kullanma; yer tutucu kullan.
+          - Yalnız belge dosyalarını değiştir; koda dokunma.
+
+          Son mesajında belgenin yolunu, kısa özetini, doğruladığın kaynakları (`dosya:satır`) ve
+          bilinmeyenleri yaz. Son mesajını Türkçe yaz; belgenin kendisi {{ input.language }} olsun.
+          {% if review is defined and review.findings %}
+
+          ## Tutarlılık kontrolü bulguları (önce bunları düzelt)
+          {{ review.findings }}
+          {% endif %}
+
+    - id: boundary
+      label: Sınır denetimi
+      position: {x: 300, y: 0}
+      config:
+        kind: gate
+        gate: boundary_check
+        target_node_id: writer
+
+    - id: verify
+      label: Tutarlılık kontrolü
+      position: {x: 600, y: 0}
+      config:
+        kind: gate
+        gate: cross_review
+        target_node_id: writer
+        max_rounds: 3
+        blocking_severities: [critical, high]
+        review_focus: >-
+          Kodla tutarlılık kontrolü: belgedeki her komut, yapılandırma anahtarı, API adı, parametre,
+          varsayılan değer ve kod örneği repodaki gerçek kodla birebir doğrulanmalı; komutlar mümkünse
+          çalıştırılarak denenmeli. Yanlış, eskimiş ya da uydurulmuş bilgi engelleyici (yüksek) bulgudur.
+          Hedef okura uygunluk, eksik adımlar ve kırık bağlantılar da kontrol edilmeli.
+
+    - id: final
+      label: Son onay
+      position: {x: 900, y: 0}
+      config:
+        kind: gate
+        gate: user_final
+
+    - id: merge
+      label: Birleştir
+      position: {x: 1200, y: 0}
+      config:
+        kind: merge
+        strategy: squash
+        require_approval: false
+
+  edges:
+    - {id: e-writer-boundary, source: writer, target: boundary}
+    - {id: e-boundary-verify, source: boundary, target: verify, condition: passed}
+    - {id: e-boundary-fix, source: boundary, target: writer, condition: failed}
+    - {id: e-verify-final, source: verify, target: final, condition: passed}
+    - {id: e-verify-fix, source: verify, target: writer, condition: failed}
+    - {id: e-final-merge, source: final, target: merge, condition: passed}
+output_format: markdown
+output_template: |
+  # Dokümantasyon: {{ input.subject | replace("\n", " ") | truncate(80) }}
+
+  - **Tür:** {{ input.doc_type }}
+  - **Hedef okur:** {{ input.audience }}
+  - **Dil:** {{ input.language }}
+
+  {{ nodes.writer.output }}

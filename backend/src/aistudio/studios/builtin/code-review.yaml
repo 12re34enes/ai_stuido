@@ -1,0 +1,183 @@
+id: code-review
+name: Kod inceleme
+description: >-
+  Claude ve Codex aynı değişikliği birbirinden bağımsız inceler; bulgular tekrarsız bir listede
+  birleşir, çelişkiler işaretlenir. Çıktı: önem dereceli bulgu listesi ve istenirse PR yorumu.
+icon: scan-search
+version: 1
+builtin: true
+inputs:
+  - name: target
+    label: İncelenecek değişiklik
+    type: text
+    required: true
+    help: Branch (feature/odeme), commit aralığı (main..feature/odeme) ya da PR numarası (#42).
+  - name: repo
+    label: Repo
+    type: repo
+    required: true
+  - name: base
+    label: Karşılaştırma tabanı
+    type: text
+    required: false
+    default: ""
+    help: Boş bırakılırsa reponun varsayılan branch'i kullanılır.
+  - name: focus
+    label: Odak alanları
+    type: textarea
+    required: false
+    default: Doğruluk, güvenlik, performans, okunabilirlik, test kapsamı
+  - name: post_pr_comment
+    label: PR yorumu hazırla
+    type: select
+    required: false
+    default: Hayır
+    options: [Hayır, Evet]
+    help: Evet seçilirse rapora PR'a doğrudan eklenebilecek kısa bir yorum metni eklenir.
+graph:
+  settings:
+    gates:
+      plan_approval: false
+      boundary_check: false
+      build_test: false
+      cross_review: false
+      user_final: false
+    limit_policy:
+      on_exhausted: queue
+    max_parallel_agents: 2
+  nodes:
+    - id: fanout
+      label: Bağımsız incelemeler
+      position: {x: 0, y: 0}
+      config:
+        kind: parallel
+
+    - id: review_claude
+      label: Claude incelemesi
+      position: {x: 300, y: -140}
+      config:
+        kind: agent
+        provider: claude
+        role: reviewer
+        writes: false
+        output_format: findings
+        repo_ids: ["{{ input.repo }}"]
+        prompt_template: &reviewer_prompt |
+          Sen titiz bir kod inceleyicisisin ve diğer inceleyiciden bağımsız çalışıyorsun. Dosya
+          değiştirme ve kod yazma; yalnız oku ve gerekirse salt okuma komutlarıyla doğrula.
+
+          ## İncelenecek değişiklik
+          {{ input.target }}{% if input.base %} (taban: {{ input.base }}){% endif %}
+
+          ## Odak alanları
+          {{ input.focus }}
+
+          ## Çalışma alanı hafızası
+          {{ memory.context }}
+
+          ## Yöntem
+          1. Değişikliği kendin çıkar: `git log` ve `git diff {% if input.base %}{{ input.base }}{% else %}<varsayılan branch>{% endif %}...<hedef>`;
+             değişen dosyaların tam halini oku. PR numarası verildiyse ilgili branch'i bul.
+          2. Her değişikliği bağlamıyla değerlendir: çağıran kod, testler, sınırlar ve karar dizini.
+          3. Yalnız gerçek sorunları raporla; zevk meselelerini "düşük" olarak işaretle. Emin olmadığın
+             bulguyu "doğrulanmalı" diye belirt. Testleri çalıştırabiliyorsan çalıştır ve sonucu kanıt olarak kullan.
+
+          ## Bulgu biçimi
+          Her bulgu için:
+          - **Önem:** kritik | yüksek | orta | düşük
+          - **Konum:** `dosya:satır`
+          - **Sorun:** ne yanlış ve neden önemli
+          - **Kanıt:** ilgili kod parçası ya da çalıştırdığın komutun çıktısı
+          - **Öneri:** somut düzeltme (gerekirse kısa kod)
+
+          En sonda "Genel değerlendirme" başlığıyla 3-5 cümlelik bir özet ve birleştirme önerisi ver:
+          birleştirilebilir, düzeltmelerle birleştirilebilir ya da birleştirilmemeli.
+          Türkçe yaz; kod ve tanımlayıcılar özgün dillerinde kalsın.
+
+    - id: review_codex
+      label: Codex incelemesi
+      position: {x: 300, y: 140}
+      config:
+        kind: agent
+        provider: codex
+        role: reviewer
+        writes: false
+        output_format: findings
+        repo_ids: ["{{ input.repo }}"]
+        prompt_template: *reviewer_prompt
+
+    - id: gather
+      label: İncelemeleri topla
+      position: {x: 600, y: 0}
+      config:
+        kind: join
+        mode: all
+
+    - id: consolidate
+      label: Bulguları birleştir
+      position: {x: 900, y: 0}
+      config:
+        kind: synthesis
+        provider: claude
+        devil_advocate: false
+        output_format: report
+        propose_memory: false
+        prompt_template: |
+          İki bağımsız kod incelemesini tek, tekrarsız ve önem sırasına dizilmiş bir bulgu listesinde
+          birleştireceksin. Gerekirse kodu kendin okuyarak doğrula; dosya değiştirme.
+
+          ## İncelenen değişiklik
+          {{ input.target }}{% if input.base %} (taban: {{ input.base }}){% endif %}
+
+          ## İnceleme A (Claude)
+          {{ nodes.review_claude.output }}
+
+          ## İnceleme B (Codex)
+          {{ nodes.review_codex.output }}
+
+          ## Kurallar
+          - Aynı sorunu anlatan bulguları birleştir ve kaynağını belirt: [A], [B] ya da [A+B].
+            İki inceleyicinin de bulduğu sorunlar daha güvenilirdir.
+          - Çelişkileri (biri sorun diyor diğeri doğru diyor ya da önem dereceleri farklı) "⚠ Çelişki"
+            etiketiyle işaretle; iki görüşü de yaz ve hangisinin daha olası olduğunu gerekçesiyle belirt.
+          - Önem derecesini kanıta göre yeniden değerlendirebilirsin; değiştirdiysen nedenini yaz.
+          - Hiçbir bulguyu sessizce atma; geçersiz saydıklarını "Elenen bulgular" bölümünde gerekçesiyle listele.
+
+          ## Biçim
+          # Kod inceleme raporu
+          ## Özet
+          (önem derecesine göre bulgu sayıları ve birleştirme önerisi)
+          ## Kritik
+          ## Yüksek
+          ## Orta
+          ## Düşük
+          ## Çelişkiler
+          ## Elenen bulgular
+          Boş bölümlere "Yok." yaz.
+          {% if input.post_pr_comment == "Evet" %}
+
+          En sona "## PR yorumu" başlığıyla, PR'a doğrudan eklenebilecek kısa bir yorum yaz: iki cümlelik
+          özet, kritik ve yüksek bulgular (`dosya:satır` ile) ve birleştirme önerisi. Nazik ve yapıcı bir
+          dil kullan.
+          {% endif %}
+          Türkçe yaz; kod ve tanımlayıcılar özgün dillerinde kalsın.
+
+  edges:
+    - {id: e-fanout-claude, source: fanout, target: review_claude}
+    - {id: e-fanout-codex, source: fanout, target: review_codex}
+    - {id: e-claude-gather, source: review_claude, target: gather}
+    - {id: e-codex-gather, source: review_codex, target: gather}
+    - {id: e-gather-consolidate, source: gather, target: consolidate}
+output_format: markdown
+output_template: |
+  {{ nodes.consolidate.output }}
+
+  ---
+
+  ## Ek A: Claude incelemesi
+
+  {{ nodes.review_claude.output }}
+
+  ## Ek B: Codex incelemesi
+
+  {{ nodes.review_codex.output }}
