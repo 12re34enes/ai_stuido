@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pydantic import BaseModel, field_validator
 
 from aistudio.contracts.approvals import ApprovalKind, ApprovalRequest, ApprovalService
 from aistudio.core.context import AppContext
@@ -138,3 +140,31 @@ def test_settings_roundtrip(app_ctx: AppCtx) -> None:
     assert client.get("/api/settings").json()["safety.remote_production_approvals"] is False
     client.put("/api/settings/appearance.theme", json={"value": "dark"})
     assert client.get("/api/settings").json()["appearance.theme"] == "dark"
+
+
+class _HourBody(BaseModel):
+    hour: int
+
+    @field_validator("hour")
+    @classmethod
+    def _check(cls, v: int) -> int:
+        if not 0 <= v < 24:
+            raise ValueError("saat 0-23 olmalı")
+        return v
+
+
+def test_validator_value_error_returns_422(app_ctx: AppCtx) -> None:
+    """A model validator raising ValueError must produce a 422, not a 500."""
+    client, _, _ = app_ctx
+    app = client.app
+    assert isinstance(app, FastAPI)
+
+    async def endpoint(body: _HourBody) -> dict[str, int]:
+        return {"hour": body.hour}
+
+    app.add_api_route("/api/__test_validation", endpoint, methods=["POST"])
+    r = client.post("/api/__test_validation", json={"hour": 99})
+    assert r.status_code == 422
+    err = r.json()["error"]
+    assert err["code"] == "validation_failed"
+    assert "saat 0-23" in str(err["details"])

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -115,7 +115,13 @@ def create_app(ctx: AppContext, token: str, modules: list[Module] | None = None)
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(
-            {"error": {"code": "validation_failed", "message": "Geçersiz istek", "details": {"errors": exc.errors()}}},
+            {
+                "error": {
+                    "code": "validation_failed",
+                    "message": "Geçersiz istek",
+                    "details": {"errors": _jsonable_errors(exc.errors())},
+                }
+            },
             status_code=422,
         )
 
@@ -191,6 +197,24 @@ def create_app(ctx: AppContext, token: str, modules: list[Module] | None = None)
 
     # Modules may also expose websocket routes on their router; mount extra apps here if needed.
     return app
+
+
+def _jsonable_errors(errors: Sequence[Any]) -> list[dict[str, Any]]:
+    """Pydantic puts the raised exception object in ``ctx`` (e.g. a validator's ValueError),
+    which is not JSON serializable; stringify anything that isn't plain data."""
+    out: list[dict[str, Any]] = []
+    for err in errors:
+        item = dict(err)
+        ctx = item.get("ctx")
+        if isinstance(ctx, dict):
+            item["ctx"] = {
+                k: v if isinstance(v, str | int | float | bool | type(None)) else str(v) for k, v in ctx.items()
+            }
+        item.pop("url", None)
+        if "input" in item and not isinstance(item["input"], str | int | float | bool | list | dict | type(None)):
+            item["input"] = str(item["input"])
+        out.append(item)
+    return out
 
 
 async def setup_modules(ctx: AppContext, modules: list[Module]) -> None:
