@@ -79,4 +79,19 @@ export { isMacPlatform, isTypingTarget, matchesShortcut, parseShortcut, shortcut
 export { parseAnsi, stripAnsi } from "./log/ansi";
 export { parseMarkdown } from "./markdown/parse";
 export { usePortalContainer } from "./portal";
-export { ContextRing, type ContextRingProps } from "./ContextRing";
+export { ContextRing, ContextTooltipContent, type ContextRingProps, type ContextRingTone } from "./ContextRing";
+export { ContextBar, type ContextBarProps } from "./ContextBar";
+export { TokenBreakdown, TokenMeter, type TokenMeterProps } from "./TokenMeter";
+export {
+  contextPercent,
+  contextStrings,
+  contextSummary,
+  contextTone,
+  isContextJump,
+  totalTokens,
+  useContextPulse,
+  CONTEXT_CRITICAL_AT,
+  CONTEXT_JUMP_AT,
+  CONTEXT_WARN_AT,
+  type ContextTone,
+} from "./contextWindow";

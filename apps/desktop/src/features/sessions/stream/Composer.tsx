@@ -26,9 +26,11 @@ export interface ComposerProps {
   onInterrupt: () => Promise<unknown>;
   /** DOM id of the textarea (palette commands focus it). */
   inputId?: string;
+  /** Changes when the centered column moves (side rail): the box glides along. */
+  layoutKey?: string | number | boolean;
 }
 
-export function Composer({ provider, busy, ended, readonly, compact, onSend, onSteer, onInterrupt, inputId }: ComposerProps) {
+export function Composer({ provider, busy, ended, readonly, compact, onSend, onSteer, onInterrupt, inputId, layoutKey }: ComposerProps) {
   const [text, setText] = useState("");
   const [pending, setPending] = useState<"send" | "steer" | "interrupt" | null>(null);
   // Inline confirmation in the hint row (a toast would cover the buttons).
@@ -104,7 +106,12 @@ export function Composer({ provider, busy, ended, readonly, compact, onSend, onS
   const empty = !text.trim();
   return (
     <div className={cn("shrink-0", compact ? "px-3 pt-2 pb-3" : "px-8 pt-2 pb-5")}>
-      <div className={cn(!compact && "mx-auto max-w-[760px]")}>
+      <motion.div
+        layout={layoutKey === undefined ? false : "position"}
+        layoutDependency={layoutKey}
+        transition={spring.layout}
+        className={cn(!compact && "mx-auto max-w-[760px]")}
+      >
         <div
           className={cn(
             "border bg-surface shadow-1 transition-[border-color,box-shadow] duration-150",
@@ -203,7 +210,7 @@ export function Composer({ provider, busy, ended, readonly, compact, onSend, onS
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

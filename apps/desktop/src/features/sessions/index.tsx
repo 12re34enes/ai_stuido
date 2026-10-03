@@ -5,7 +5,7 @@
 import { ChevronLeft, FolderSearch, Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
-import { Route, Routes, useLocation, useNavigate, useParams } from "react-router";
+import { Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { commandGroups, useRegisterCommands, type StudioCommand } from "@/lib/commands";
 import { useActiveSessions } from "@/lib/queries";
@@ -84,6 +84,7 @@ function SessionsHome({ tab }: { tab: Tab }) {
 
 function SessionPage() {
   const { id = "" } = useParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -93,7 +94,7 @@ function SessionPage() {
         </Button>
       </div>
       <div className="min-h-0 flex-1 border-t border-line-subtle">
-        <SessionStream sessionId={id} />
+        <SessionStream sessionId={id} focusSubagent={params.get("subagent")} />
       </div>
     </div>
   );

@@ -60,9 +60,16 @@ export function applyListEvents(qc: QueryClient, batch: readonly StudioEvent[]):
       case "agent.status":
         if (typeof p.state === "string") patchSession(qc, id, { state: p.state as AgentState, updated_at: ev.ts });
         break;
-      case "agent.usage":
-        patchSession(qc, id, { last_usage: p as unknown as SessionView["last_usage"] });
+      case "agent.usage": {
+        // A subagent's tokens and context window are its own, never the session's ring.
+        if (str(p.subagent_id)) break;
+        const prev = known.get(id)?.last_usage;
+        const next = p as unknown as NonNullable<SessionView["last_usage"]>;
+        patchSession(qc, id, {
+          last_usage: { ...prev, ...next, context_used: next.context_used ?? prev?.context_used, context_window: next.context_window ?? prev?.context_window },
+        });
         break;
+      }
       case "agent.turn.completed":
         if (p.usage && typeof p.usage === "object") patchSession(qc, id, { last_usage: p.usage as SessionView["last_usage"] });
         break;
@@ -70,7 +77,8 @@ export function applyListEvents(qc: QueryClient, batch: readonly StudioEvent[]):
         if (str(p.input)) lines[id] = `› ${firstLine(str(p.input))}`;
         break;
       case "agent.tool.call":
-        lines[id] = describeToolText(
+        // Work done inside a subagent reads as such ("↳ …").
+        lines[id] = (str(p.subagent_id) ? "↳ " : "") + describeToolText(
           {
             tool: str(p.tool),
             toolKind: (str(p.kind) || "other") as Parameters<typeof describeToolText>[0]["toolKind"],
@@ -82,7 +90,7 @@ export function applyListEvents(qc: QueryClient, batch: readonly StudioEvent[]):
         );
         break;
       case "agent.message":
-        if (p.role !== "user" && str(p.text)) lines[id] = firstLine(str(p.text));
+        if (p.role !== "user" && str(p.text)) lines[id] = (str(p.subagent_id) ? "↳ " : "") + firstLine(str(p.text));
         break;
       case "agent.permission.request":
         if (p.verdict === "ask" && str(p.summary)) lines[id] = str(p.summary);

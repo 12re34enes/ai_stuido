@@ -13,6 +13,12 @@ import type { AgentRole, AgentState, Environment, Provider, SessionRecord, Usage
 export interface SessionView extends SessionRecord {
   /** A CLI process is attached in this studiod. */
   live?: boolean;
+  /** CLI-native subagents spawned in this session (spec §25); read via sessionSubagentCounts. */
+  subagent_count?: number | null;
+  /** Subagents still running (a count; a list is tolerated). */
+  active_subagents?: number | unknown[] | null;
+  /** Reasoning effort, when the backend reports it. */
+  effort?: string | null;
 }
 
 export interface AgentProfile {

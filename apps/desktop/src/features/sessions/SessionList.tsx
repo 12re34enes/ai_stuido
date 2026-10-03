@@ -7,19 +7,20 @@ import { useNavigate } from "react-router";
 import { readPref, writePref } from "@/lib/storage";
 import { useWorkspaces } from "@/lib/queries";
 import { spring, transition, variants } from "@/motion/tokens";
-import { AgentCard, Badge, Button, EmptyState, IconButton, Input, ProviderMark, SegmentedControl, Select, Skeleton, uiStrings } from "@/ui";
+import { Badge, Button, EmptyState, IconButton, Input, ProviderMark, SegmentedControl, Select, Skeleton, uiStrings } from "@/ui";
 
-import { useSessions, type SessionView } from "./api";
+import { useProfiles, useSessions, type SessionView } from "./api";
 import { openSessionDrawer } from "./drawer";
 import { DEFAULT_FILTERS, filterSessions, hasActiveFilters, splitActive, type ProviderFilter, type SessionFilters, type StateFilter } from "./filters";
 import { ErrorState, FilterRow, SectionLabel } from "./kit/Page";
 import { useLastLines, useSessionListLive } from "./live";
+import { SessionCard } from "./SessionCard";
 import { sessionStrings as t } from "./strings";
 import { sessionTitle, shortPath } from "./format";
 
 const ALL = "__all";
 
-function CardGrid({ items, lines }: { items: SessionView[]; lines: Record<string, string> }) {
+function CardGrid({ items, lines, efforts }: { items: SessionView[]; lines: Record<string, string>; efforts: ReadonlyMap<string, string> }) {
   const navigate = useNavigate();
   return (
     <motion.ul layout className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3" transition={spring.layout}>
@@ -33,17 +34,16 @@ function CardGrid({ items, lines }: { items: SessionView[]; lines: Record<string
             animate="animate"
             exit="exit"
             transition={spring.layout}
-            className="list-none"
+            className="flex list-none"
           >
-            <AgentCard
-              provider={s.provider}
+            <SessionCard
+              session={s}
               title={sessionTitle(s)}
-              model={s.model}
-              role={s.role}
-              state={s.state}
-              usage={s.last_usage}
+              effort={s.effort ?? (s.profile_id ? efforts.get(s.profile_id) : null)}
               lastLine={lines[s.id] ?? (s.title && s.title !== s.label ? s.title : shortPath(s.cwd, 3))}
               onClick={() => void navigate(`/sessions/${s.id}`)}
+              onSelectSubagent={(sub) => void navigate(`/sessions/${s.id}?subagent=${encodeURIComponent(sub)}`)}
+              className="w-full"
               actions={
                 <>
                   {s.origin !== "created" && (
@@ -97,6 +97,8 @@ export function SessionList({ onNew }: { onNew: () => void }) {
   const sessions = useSessions();
   const workspaces = useWorkspaces();
   const lines = useLastLines((s) => s.lines);
+  const profiles = useProfiles(null);
+  const efforts = useMemo(() => new Map((profiles.data ?? []).filter((p) => p.effort).map((p) => [p.id, p.effort as string])), [profiles.data]);
   const [filters, setFiltersState] = useState<SessionFilters>(() => ({
     ...DEFAULT_FILTERS,
     ...readPref<Partial<SessionFilters>>("sessions.filters", {}),
@@ -202,7 +204,7 @@ export function SessionList({ onNew }: { onNew: () => void }) {
                   aria-label={t.sections.active}
                 >
                   <SectionLabel count={active.length}>{t.sections.active}</SectionLabel>
-                  <CardGrid items={active} lines={lines} />
+                  <CardGrid items={active} lines={lines} efforts={efforts} />
                 </motion.section>
               )}
               {recent.length > 0 && (
@@ -216,7 +218,7 @@ export function SessionList({ onNew }: { onNew: () => void }) {
                   aria-label={t.sections.recent}
                 >
                   <SectionLabel count={recent.length}>{t.sections.recent}</SectionLabel>
-                  <CardGrid items={recent} lines={lines} />
+                  <CardGrid items={recent} lines={lines} efforts={efforts} />
                 </motion.section>
               )}
             </AnimatePresence>

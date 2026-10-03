@@ -1,0 +1,22 @@
+/*
+ * Subagent visuals: the "working" shimmer that sweeps over a running subagent's live line.
+ * Transform only (GPU); reduced motion shortens it to a no-op via the global rules.
+ */
+.subagent-shimmer {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.subagent-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.6;
+  background: linear-gradient(90deg, transparent 0%, var(--shimmer) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: studio-shimmer calc(var(--dur-shimmer) * 1.25) var(--ease-in-out) infinite;
+}

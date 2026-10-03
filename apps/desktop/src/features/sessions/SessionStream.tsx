@@ -9,12 +9,13 @@
 import "./stream/stream.css";
 
 import { MessageSquare } from "lucide-react";
-import { motion } from "motion/react";
-import { useCallback, useMemo, useReducer, useState, type ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useNavigate } from "react-router";
 
 import { ApiError } from "@/lib/api";
 import { commandGroups, useRegisterCommands, type StudioCommand } from "@/lib/commands";
+import { readPref, writePref } from "@/lib/storage";
 import type { AgentState, Usage } from "@/lib/types";
 import { variants } from "@/motion/tokens";
 import { Badge, cn, EmptyState, ProviderMark, Skeleton, toast, uiStrings } from "@/ui";
@@ -22,13 +23,17 @@ import { Badge, cn, EmptyState, ProviderMark, Skeleton, toast, uiStrings } from 
 import { useSession, useSessionControl, type SessionView } from "./api";
 import { ErrorState } from "./kit/Page";
 import { sessionStrings as t } from "./strings";
+import { unionSubagents, type SubagentNode } from "./subagent/model";
+import { useSubagentsQuery } from "./subagents";
 import { Composer } from "./stream/Composer";
 import { StreamContext, type StreamContextValue } from "./stream/context";
-import { emptyStream, foldEvents, isBusy, type StreamItem } from "./stream/model";
+import { emptyStream, foldEvents, isBusy, subagentPath, type StreamItem, type StreamState } from "./stream/model";
 import { ReplayBar } from "./stream/ReplayBar";
 import { INITIAL_REPLAY, replayReducer, type ReplaySpeed } from "./stream/replay";
-import { StreamBody } from "./stream/StreamBody";
+import { StreamBody, type StreamBodyHandle } from "./stream/StreamBody";
 import { CompactStatus, StreamHeader } from "./stream/StreamHeader";
+import { SubagentPopoverToggle, SubagentRail, SubagentToggle } from "./stream/SubagentRail";
+import { subagentNodesFromStream } from "./stream/subagents";
 import { useSessionEvents, useSessionStream } from "./stream/useSessionStream";
 
 export interface SessionStreamProps {
@@ -39,6 +44,8 @@ export interface SessionStreamProps {
   interactive?: boolean;
   /** Replay persisted history with a scrubber instead of following live (no input box). */
   replay?: boolean;
+  /** Open and scroll to this subagent's block once it is in the stream (deep link). */
+  focusSubagent?: string | null;
 }
 
 // --------------------------------------------------------------------------- shared bits
@@ -53,7 +60,58 @@ function useDisclosure() {
       return next;
     });
   }, []);
-  return { open, toggle };
+  const reveal = useCallback((keys: readonly string[]) => {
+    setOpen((prev) => (keys.every((k) => prev.has(k)) ? prev : new Set([...prev, ...keys])));
+  }, []);
+  return { open, toggle, reveal };
+}
+
+const RAIL_PREF = "sessions.subagentRail";
+
+/**
+ * Subagents of the stream: the folded events (exact, delta-fresh) merged over the API snapshot
+ * (which may know subagents older than the loaded history), plus the jump-to-block action.
+ */
+function useStreamSubagents(
+  session: SessionView,
+  state: StreamState | null,
+  body: RefObject<StreamBodyHandle | null>,
+  reveal: (keys: readonly string[]) => void,
+  enabled = true,
+) {
+  const api = useSubagentsQuery(session.id, { enabled });
+  const fromStream = useMemo(() => subagentNodesFromStream(state, session.cwd), [session.cwd, state]);
+  const nodes = useMemo<SubagentNode[]>(() => unionSubagents(api.nodes, fromStream), [api.nodes, fromStream]);
+  const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
+  const select = useCallback(
+    (id: string) => {
+      if (!state) return;
+      const path = subagentPath(state, id);
+      const target = state.subagents[id];
+      if (!path || !target) return;
+      reveal(path.chain.map((sid) => state.subagents[sid]?.key).filter((k): k is string => Boolean(k)));
+      body.current?.scrollToItem(path.topKey, target.key);
+      setHighlight((h) => ({ id, nonce: (h?.nonce ?? 0) + 1 }));
+    },
+    [body, reveal, state],
+  );
+  return { nodes, select, highlight };
+}
+
+/** Jump to `id` once its block exists (deep links from cards, popovers and the drawer). */
+function useFocusSubagent(id: string | null | undefined, state: StreamState | null, select: (id: string) => void) {
+  const done = useRef<string | null>(null);
+  const ready = Boolean(id && state?.subagents[id]);
+  useEffect(() => {
+    if (!id || !ready || done.current === id) return;
+    // Let the virtualized list measure its first rows before scrolling. A live batch that lands
+    // first re-schedules the jump (it is only marked done once it ran).
+    const frame = requestAnimationFrame(() => {
+      done.current = id;
+      select(id);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [id, ready, select]);
 }
 
 function BodySkeleton({ compact }: { compact: boolean }) {
@@ -107,6 +165,7 @@ function isStreamingNow(items: StreamItem[]): boolean {
   if (!last) return false;
   if ((last.kind === "assistant" || last.kind === "thinking") && last.streaming) return true;
   if (last.kind === "tool" && last.result === null) return true;
+  if (last.kind === "subagent" && last.status === "running") return true;
   return last.kind === "permission" && last.verdict === "ask" && last.decision === null;
 }
 
@@ -120,11 +179,32 @@ function StreamFrame({ provider, children }: { provider: SessionView["provider"]
 
 // --------------------------------------------------------------------------- live
 
-function LiveStreamView({ session, compact, interactive }: { session: SessionView; compact: boolean; interactive: boolean }) {
+function LiveStreamView({
+  session,
+  compact,
+  interactive,
+  focusSubagent,
+}: {
+  session: SessionView;
+  compact: boolean;
+  interactive: boolean;
+  focusSubagent?: string | null;
+}) {
   const navigate = useNavigate();
   const stream = useSessionStream(session.id);
   const control = useSessionControl(session.id);
-  const { open, toggle } = useDisclosure();
+  const { open, toggle, reveal } = useDisclosure();
+  const bodyRef = useRef<StreamBodyHandle>(null);
+  const subagents = useStreamSubagents(session, stream.state, bodyRef, reveal);
+  const [railOpen, setRailOpen] = useState(() => readPref<boolean>(RAIL_PREF, false));
+  const toggleRail = useCallback(() => {
+    setRailOpen((o) => {
+      writePref(RAIL_PREF, !o);
+      return !o;
+    });
+  }, []);
+  const showRail = !compact && railOpen && subagents.nodes.length > 0;
+  useFocusSubagent(focusSubagent, stream.state, subagents.select);
   const inputId = `composer-${session.id}`;
   const state: AgentState = stream.liveState ?? session.state;
   const usage = mergeUsage(session.last_usage, stream.state?.usage);
@@ -143,8 +223,11 @@ function LiveStreamView({ session, compact, interactive }: { session: SessionVie
       replay: false,
       isOpen: (k) => open.has(k),
       toggle,
+      lanes: stream.state?.lanes,
+      highlight: subagents.highlight,
+      focusSubagent: subagents.select,
     }),
-    [compact, interactive, open, session.cwd, session.id, session.provider, toggle],
+    [compact, interactive, open, session.cwd, session.id, session.provider, stream.state?.lanes, subagents.highlight, subagents.select, toggle],
   );
 
   const closeSession = useCallback(() => {
@@ -200,7 +283,12 @@ function LiveStreamView({ session, compact, interactive }: { session: SessionVie
     <StreamContext.Provider value={ctx}>
       <StreamFrame provider={session.provider}>
         {compact ? (
-          <CompactStatus session={session} state={state} usage={usage} />
+          <CompactStatus
+            session={session}
+            state={state}
+            usage={usage}
+            subagents={<SubagentPopoverToggle nodes={subagents.nodes} provider={session.provider} onSelect={subagents.select} />}
+          />
         ) : (
           <StreamHeader
             session={session}
@@ -209,43 +297,63 @@ function LiveStreamView({ session, compact, interactive }: { session: SessionVie
             onClose={interactive && !readonly ? closeSession : undefined}
             closing={control.close.isPending}
             onReplay={() => void navigate(`/history/replay/${session.id}`)}
+            subagents={<SubagentToggle nodes={subagents.nodes} provider={session.provider} open={showRail} onToggle={toggleRail} />}
           />
         )}
-        {stream.isLoading ? (
-          <BodySkeleton compact={compact} />
-        ) : stream.error ? (
-          <div className="grid flex-1 place-items-center">
-            <ErrorState title={t.stream.loadError} error={stream.error} onRetry={stream.refetch} />
-          </div>
-        ) : (
-          <StreamBody
-            items={items}
-            compact={compact}
-            busy={busy}
-            footer={showWorking ? <WorkingLine provider={session.provider} state={state} compact={compact} /> : null}
-            empty={
-              <EmptyState
-                size={compact ? "sm" : "md"}
-                icon={<MessageSquare />}
-                title={t.stream.empty}
-                description={interactive && !readonly ? t.stream.emptyHint : t.stream.emptyReadonly}
+        <div className="flex min-h-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col">
+            {stream.isLoading ? (
+              <BodySkeleton compact={compact} />
+            ) : stream.error ? (
+              <div className="grid flex-1 place-items-center">
+                <ErrorState title={t.stream.loadError} error={stream.error} onRetry={stream.refetch} />
+              </div>
+            ) : (
+              <StreamBody
+                ref={bodyRef}
+                items={items}
+                compact={compact}
+                busy={busy}
+                layoutKey={compact ? undefined : showRail}
+                footer={showWorking ? <WorkingLine provider={session.provider} state={state} compact={compact} /> : null}
+                empty={
+                  <EmptyState
+                    size={compact ? "sm" : "md"}
+                    icon={<MessageSquare />}
+                    title={t.stream.empty}
+                    description={interactive && !readonly ? t.stream.emptyHint : t.stream.emptyReadonly}
+                  />
+                }
               />
-            }
-          />
-        )}
-        {interactive && (
-          <Composer
-            provider={session.provider}
-            busy={busy}
-            ended={ended}
-            readonly={readonly}
-            compact={compact}
-            inputId={inputId}
-            onSend={(text) => control.send.mutateAsync(text)}
-            onSteer={(text) => control.steer.mutateAsync(text)}
-            onInterrupt={() => control.interrupt.mutateAsync()}
-          />
-        )}
+            )}
+            {interactive && (
+              <Composer
+                provider={session.provider}
+                busy={busy}
+                ended={ended}
+                readonly={readonly}
+                compact={compact}
+                inputId={inputId}
+                layoutKey={compact ? undefined : showRail}
+                onSend={(text) => control.send.mutateAsync(text)}
+                onSteer={(text) => control.steer.mutateAsync(text)}
+                onInterrupt={() => control.interrupt.mutateAsync()}
+              />
+            )}
+          </div>
+          <AnimatePresence initial={false} mode="popLayout">
+            {showRail && (
+              <SubagentRail
+                key="rail"
+                nodes={subagents.nodes}
+                provider={session.provider}
+                selectedId={subagents.highlight?.id ?? null}
+                onSelect={subagents.select}
+                onClose={toggleRail}
+              />
+            )}
+          </AnimatePresence>
+        </div>
       </StreamFrame>
     </StreamContext.Provider>
   );
@@ -258,9 +366,12 @@ function ReplayStreamView({ session, compact }: { session: SessionView; compact:
   const events = useMemo(() => eventsQ.data ?? [], [eventsQ.data]);
   const full = useMemo(() => foldEvents(emptyStream(), events, { sessionId: session.id }), [events, session.id]);
   const [rs, dispatch] = useReducer(replayReducer, INITIAL_REPLAY);
-  const { open, toggle } = useDisclosure();
+  const { open, toggle, reveal } = useDisclosure();
   const view = rs.view ?? full;
   const position = rs.pos ?? events.length;
+  const bodyRef = useRef<StreamBodyHandle>(null);
+  // Replays show what the history knew at this point: no API snapshot.
+  const subagents = useStreamSubagents(session, view, bodyRef, reveal, false);
 
   const ctx = useMemo<StreamContextValue>(
     () => ({
@@ -272,8 +383,11 @@ function ReplayStreamView({ session, compact }: { session: SessionView; compact:
       replay: true,
       isOpen: (k) => open.has(k),
       toggle,
+      lanes: view.lanes,
+      highlight: subagents.highlight,
+      focusSubagent: subagents.select,
     }),
-    [compact, open, session.cwd, session.id, session.provider, toggle],
+    [compact, open, session.cwd, session.id, session.provider, subagents.highlight, subagents.select, toggle, view.lanes],
   );
   const onStep = useCallback(() => dispatch({ type: "step", events, sessionId: session.id }), [events, session.id]);
   const onPosition = useCallback((pos: number) => dispatch({ type: "seek", pos, events, sessionId: session.id }), [events, session.id]);
@@ -284,13 +398,19 @@ function ReplayStreamView({ session, compact }: { session: SessionView; compact:
     <StreamContext.Provider value={ctx}>
       <StreamFrame provider={session.provider}>
         {compact ? (
-          <CompactStatus session={session} state={view.state ?? session.state} usage={mergeUsage(session.last_usage, view.usage)} />
+          <CompactStatus
+            session={session}
+            state={view.state ?? session.state}
+            usage={mergeUsage(session.last_usage, view.usage)}
+            subagents={<SubagentPopoverToggle nodes={subagents.nodes} provider={session.provider} onSelect={subagents.select} />}
+          />
         ) : (
           <StreamHeader
             session={session}
             state={view.state ?? session.state}
             usage={mergeUsage(session.last_usage, view.usage)}
             trailing={<Badge tone="info">{t.stream.replay.title}</Badge>}
+            subagents={<SubagentPopoverToggle nodes={subagents.nodes} provider={session.provider} onSelect={subagents.select} />}
           />
         )}
         {eventsQ.isLoading ? (
@@ -300,7 +420,7 @@ function ReplayStreamView({ session, compact }: { session: SessionView; compact:
             <ErrorState title={t.stream.loadError} error={eventsQ.error} onRetry={() => void eventsQ.refetch()} />
           </div>
         ) : (
-          <StreamBody items={view.items} compact={compact} empty={<EmptyState size="sm" icon={<MessageSquare />} title={t.stream.replay.empty} />} />
+          <StreamBody ref={bodyRef} items={view.items} compact={compact} empty={<EmptyState size="sm" icon={<MessageSquare />} title={t.stream.replay.empty} />} />
         )}
         <ReplayBar
           events={events}
@@ -319,7 +439,7 @@ function ReplayStreamView({ session, compact }: { session: SessionView; compact:
 
 // --------------------------------------------------------------------------- entry
 
-export function SessionStream({ sessionId, compact = false, interactive = true, replay = false }: SessionStreamProps) {
+export function SessionStream({ sessionId, compact = false, interactive = true, replay = false, focusSubagent }: SessionStreamProps) {
   const sessionQ = useSession(sessionId);
   if (sessionQ.isLoading) {
     return (
@@ -341,18 +461,18 @@ export function SessionStream({ sessionId, compact = false, interactive = true, 
     const notFound = sessionQ.error instanceof ApiError && sessionQ.error.status === 404;
     return (
       <div className="grid h-full place-items-center">
-        <ErrorState
-          size={compact ? "sm" : "md"}
-          title={notFound ? t.stream.notFound : t.stream.loadError}
-          error={notFound ? undefined : sessionQ.error}
-          onRetry={notFound ? undefined : () => void sessionQ.refetch()}
-        />
+        {notFound ? (
+          // Name the id: a stale link or a session from another studiod is easy to tell apart.
+          <EmptyState size={compact ? "sm" : "md"} icon={<MessageSquare />} title={t.stream.notFound} description={t.stream.notFoundId(sessionId)} />
+        ) : (
+          <ErrorState size={compact ? "sm" : "md"} title={t.stream.loadError} error={sessionQ.error} onRetry={() => void sessionQ.refetch()} />
+        )}
       </div>
     );
   }
   return replay ? (
     <ReplayStreamView key={sessionId} session={sessionQ.data} compact={compact} />
   ) : (
-    <LiveStreamView key={sessionId} session={sessionQ.data} compact={compact} interactive={interactive} />
+    <LiveStreamView key={sessionId} session={sessionQ.data} compact={compact} interactive={interactive} focusSubagent={focusSubagent} />
   );
 }

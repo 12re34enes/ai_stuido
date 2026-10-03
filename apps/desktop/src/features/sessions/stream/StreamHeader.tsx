@@ -6,24 +6,9 @@ import { Copy, Ellipsis, ExternalLink, FolderGit2, History, Laptop, Power, Serve
 import { AnimatePresence, motion } from "motion/react";
 import type { ReactNode } from "react";
 
-import { formatCompact, formatNumber, formatPercent } from "@/i18n/format";
 import type { AgentState, Usage } from "@/lib/types";
 import { spring, variants } from "@/motion/tokens";
-import {
-  agentDotStatus,
-  AnimatedNumber,
-  Badge,
-  cn,
-  IconButton,
-  limitTone,
-  Menu,
-  MenuItem,
-  MenuSeparator,
-  ProviderMark,
-  StatusDot,
-  Tooltip,
-  uiStrings,
-} from "@/ui";
+import { agentDotStatus, Badge, cn, ContextRing, IconButton, Menu, MenuItem, MenuSeparator, ProviderMark, StatusDot, TokenMeter, uiStrings } from "@/ui";
 
 import type { SessionView } from "../api";
 import { sessionTitle, shortPath } from "../format";
@@ -53,53 +38,14 @@ export function StatePill({ state, provider, size = "md" }: { state: AgentState;
   );
 }
 
-/** Context-window meter (provider-colored, amber/red near the limit). */
-export function ContextMeter({ usage, provider, width = "w-20" }: { usage: Usage | null | undefined; provider: SessionView["provider"]; width?: string }) {
-  const pct = contextPercent(usage);
-  if (pct === null) return null;
-  const tone = limitTone(pct);
-  const fill = tone === "ok" ? (provider === "claude" ? "bg-claude" : "bg-codex") : tone === "warning" ? "bg-warning" : "bg-danger";
-  return (
-    <Tooltip
-      content={`${t.stream.usage.context}: ${t.stream.usage.contextOf(formatNumber(usage?.context_used ?? 0), formatNumber(usage?.context_window ?? 0))} ${t.stream.usage.tokens}`}
-      side="bottom"
-    >
-      <span className="inline-flex items-center gap-2 text-2xs text-fg-muted" tabIndex={0}>
-        <span
-          role="meter"
-          aria-label={t.stream.usage.context}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(pct)}
-          aria-valuetext={formatPercent(pct)}
-          className={cn("relative h-1 overflow-hidden bg-line", width, provider === "claude" ? "rounded-full" : "rounded-[1px]")}
-        >
-          <motion.span
-            className={cn("absolute inset-0 transition-[background-color] duration-500", fill, provider === "claude" ? "rounded-full" : "rounded-[1px]")}
-            initial={{ x: "-100%" }}
-            animate={{ x: `${pct - 100}%` }}
-            transition={spring.fill}
-          />
-        </span>
-        <span className="tabular">
-          {t.stream.usage.context} <AnimatedNumber value={Math.round(pct)} prefix="%" />
-        </span>
-      </span>
-    </Tooltip>
-  );
+/** Context-window ring (provider-colored, amber at 70%, red at 90%, exact figure in the tooltip). */
+export function ContextMeter({ usage, provider, size = 22 }: { usage: Usage | null | undefined; provider: SessionView["provider"]; size?: number }) {
+  if (contextPercent(usage) === null) return null;
+  return <ContextRing used={usage?.context_used} window={usage?.context_window} size={size} tone={provider} showLabel focusable />;
 }
 
 export function TokenCount({ usage }: { usage: Usage | null | undefined }) {
-  if (!usage || (!usage.input_tokens && !usage.output_tokens)) return null;
-  return (
-    <span className="inline-flex items-center gap-1 text-2xs whitespace-nowrap text-fg-muted">
-      <AnimatedNumber value={usage.input_tokens} format={formatCompact} /> {t.stream.usage.input}
-      <span aria-hidden className="text-fg-faint">
-        ·
-      </span>
-      <AnimatedNumber value={usage.output_tokens} format={formatCompact} /> {t.stream.usage.output}
-    </span>
-  );
+  return <TokenMeter usage={usage} />;
 }
 
 function Meta({ icon, children, title, mono }: { icon?: ReactNode; children: ReactNode; title?: string; mono?: boolean }) {
@@ -121,9 +67,11 @@ export interface StreamHeaderProps {
   onReplay?: () => void;
   /** Extra content on the right (replay label...). */
   trailing?: ReactNode;
+  /** Subagent tree toggle (shown when the session has subagents). */
+  subagents?: ReactNode;
 }
 
-export function StreamHeader({ session, state, usage, onClose, closing, onOpenPage, onReplay, trailing }: StreamHeaderProps) {
+export function StreamHeader({ session, state, usage, onClose, closing, onOpenPage, onReplay, trailing, subagents }: StreamHeaderProps) {
   const claude = session.provider === "claude";
   const remote = session.location?.kind === "remote";
   const ended = state === "done" || state === "error";
@@ -169,6 +117,7 @@ export function StreamHeader({ session, state, usage, onClose, closing, onOpenPa
       </div>
       <div className="flex shrink-0 items-center gap-4">
         {trailing}
+        {subagents}
         <TokenCount usage={usage} />
         <ContextMeter usage={usage} provider={session.provider} />
         <StatePill state={state} provider={session.provider} />
@@ -201,14 +150,15 @@ export function StreamHeader({ session, state, usage, onClose, closing, onOpenPa
 }
 
 /** One-line status for the compact (drawer/inline) variant. */
-export function CompactStatus({ session, state, usage }: { session: SessionView; state: AgentState; usage: Usage | null }) {
+export function CompactStatus({ session, state, usage, subagents }: { session: SessionView; state: AgentState; usage: Usage | null; subagents?: ReactNode }) {
   return (
     <div role="region" aria-label={t.stream.statusRegion} className="flex h-9 shrink-0 items-center gap-3 border-b border-line-subtle px-4">
       <StatePill state={state} provider={session.provider} size="sm" />
       <span className="min-w-0 flex-1 truncate font-mono text-2xs text-fg-faint" title={session.cwd}>
         {shortPath(session.cwd)}
       </span>
-      <ContextMeter usage={usage} provider={session.provider} width="w-12" />
+      {subagents}
+      <ContextMeter usage={usage} provider={session.provider} size={16} />
     </div>
   );
 }

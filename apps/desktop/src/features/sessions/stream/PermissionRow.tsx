@@ -3,7 +3,7 @@
  * as a quiet row; "ask" requests show a card whose buttons resolve the matching
  * tool_permission approval (payload.request_id) — the same approval the inbox shows.
  */
-import { ShieldAlert, ShieldCheck, ShieldQuestion, ShieldX } from "lucide-react";
+import { Bot, ShieldAlert, ShieldCheck, ShieldQuestion, ShieldX } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
@@ -20,6 +20,31 @@ import type { PermissionItem } from "./model";
 import { RowGrid } from "./rows";
 
 const ps = t.stream.permission;
+
+/** Which subagent raised the request; clicking jumps to its block. */
+function Asker({ item }: { item: PermissionItem }) {
+  const { focusSubagent, provider } = useStreamContext();
+  if (!item.subagentId) return null;
+  const name = item.subagentName ?? t.subagents.unnamed;
+  const id = item.subagentId;
+  return (
+    <Tooltip content={t.subagents.showBlock} side="top">
+      <button
+        type="button"
+        onClick={() => focusSubagent?.(id)}
+        className={cn(
+          "inline-flex h-[18px] max-w-[14rem] shrink-0 items-center gap-1 px-1.5 text-2xs font-medium outline-none transition-colors duration-150 focus-visible:shadow-[var(--focus-ring)]",
+          provider === "claude"
+            ? "rounded-full bg-claude-soft text-claude-strong hover:bg-claude-soft/70"
+            : "rounded-[3px] border border-codex-line font-mono text-codex hover:bg-codex-soft",
+        )}
+      >
+        <Bot className="size-3 shrink-0" aria-hidden />
+        <span className="truncate">{t.subagents.askedBy(name)}</span>
+      </button>
+    </Tooltip>
+  );
+}
 
 function deciderLabel(who: string): string {
   if (who === "user") return "siz";
@@ -52,6 +77,7 @@ function AutoRow({ item }: { item: PermissionItem }) {
       <Tooltip content={item.policyReason ?? (allow ? ps.allowAuto : ps.denyAuto)} side="top">
         <p className={cn("flex min-w-0 items-center gap-1.5 truncate", compact ? "h-[22px] text-xs" : "h-7 text-sm")}>
           <span className={cn("shrink-0 font-medium", allow ? "text-fg-muted" : "text-danger")}>{allow ? ps.allowAuto : ps.denyAuto}</span>
+          {item.subagentName && <span className="shrink-0 text-fg-faint">· {item.subagentName}</span>}
           <span className="min-w-0 truncate text-fg-faint">{item.command ?? item.summary}</span>
         </p>
       </Tooltip>
@@ -130,7 +156,10 @@ function AskCard({ item }: { item: PermissionItem }) {
       >
         <div className="flex items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-2xs font-medium tracking-[0.04em] text-fg-muted uppercase">{ps.title}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="text-2xs font-medium tracking-[0.04em] text-fg-muted uppercase">{ps.title}</span>
+              <Asker item={item} />
+            </span>
             <p data-selectable className={cn("text-fg [overflow-wrap:anywhere]", compact ? "text-xs" : "text-sm")}>
               <InlineCode text={item.summary} codeClassName="bg-surface/70" />
             </p>

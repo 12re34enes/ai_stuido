@@ -260,7 +260,7 @@ export function NodePanel(props: NodePanelProps) {
           <SectionTitle id={`agents-${nodeId}`} count={nodeSessions.length}>
             {s.agents}
           </SectionTitle>
-          <AgentCards sessions={nodeSessions} lastLines={lastLines} />
+          <AgentCards sessions={nodeSessions} lastLines={lastLines} effort={typeof nv.node.config.effort === "string" ? nv.node.config.effort : null} />
         </section>
       )}
 

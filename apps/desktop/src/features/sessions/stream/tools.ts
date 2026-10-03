@@ -133,6 +133,9 @@ export function describeTool(item: Pick<ToolItem, "tool" | "toolKind" | "input" 
       break;
     }
     case "subagent": {
+      // Codex collab calls other than a spawn (wait, sendInput, closeAgent…) are not a subagent
+      // running: the adapter's Turkish summary says what happens.
+      if (/^collab__/.test(name) && name !== "collab__spawnAgent" && item.summary) return { text: item.summary, code: null, after: "" };
       const desc = s(input.description) ?? s(input.subagent_type) ?? s(input.prompt);
       return { text: tense("Alt ajan çalışıyor", "Alt ajan bitti", "Alt ajan başarısız"), code: null, after: desc ? `· ${firstLine(desc, 60)}` : "" };
     }

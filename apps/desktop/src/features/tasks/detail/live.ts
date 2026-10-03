@@ -153,7 +153,8 @@ export function applyTaskEvents(qc: QueryClient, taskId: string, batch: readonly
         if (runId) schedule(tdKeys.sessions(runId), 250);
       }
     } else if (t === "agent.usage" && ev.session_id) {
-      if (runId) patchSessions(qc, runId, ev.session_id, { last_usage: p as unknown as Usage });
+      // A CLI-native subagent's usage is its own: the agent card's context ring stays the session's.
+      if (runId && !str(p.subagent_id)) patchSessions(qc, runId, ev.session_id, { last_usage: p as unknown as Usage });
       schedule(tdKeys.usage(taskId), 1500);
     } else if (t === "agent.message" && ev.session_id && p.role !== "user") {
       const line = firstLine(str(p.text));

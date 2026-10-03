@@ -2,60 +2,28 @@
  * Virtualized conversation (TanStack Virtual, dynamic row heights). Rows render in normal flow
  * inside one translated window, so a row that opens pushes its neighbours smoothly. Sticks to
  * the newest item while the reader is at the bottom; otherwise a pill counts what arrived.
+ * `ref` exposes `scrollToItem` for deep links (e.g. jumping to a subagent block).
  */
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
 
-import { spring, transition, variants } from "@/motion/tokens";
+import { useReducedMotionPref } from "@/motion/hooks";
+import { duration, spring, transition, variants } from "@/motion/tokens";
 import { cn } from "@/ui";
 
 import { sessionStrings as t } from "../strings";
+import { ItemRow } from "./ItemRow";
+import { ESTIMATE, gapBefore } from "./layout";
 import type { StreamItem } from "./model";
-import { PermissionRow } from "./PermissionRow";
-import { AssistantRow, NoticeRow, ThinkingRow, TurnRow, UserRow } from "./rows";
-import { FileRow, ToolRow } from "./ToolRow";
 
 const BOTTOM_SLACK = 40;
 
-type Kind = StreamItem["kind"];
-const DENSE: Kind[] = ["tool", "file", "thinking"];
-
-/** Space above an item given the one before it (px, comfortable density). */
-function gapBefore(prev: StreamItem | undefined, cur: StreamItem): number {
-  if (!prev) return 0;
-  if (cur.kind === "user") return prev.kind === "turn" || prev.kind === "notice" ? 16 : 24;
-  if (cur.kind === "turn" || cur.kind === "notice") return 16;
-  if (prev.kind === "turn" || prev.kind === "notice") return 16;
-  if (prev.kind === "user") return 16;
-  if (cur.kind === "permission" || prev.kind === "permission") return 10;
-  if (DENSE.includes(cur.kind) && DENSE.includes(prev.kind)) return 2;
-  if (cur.kind === "assistant" && prev.kind === "assistant") return 12;
-  return 10;
-}
-
-const ESTIMATE: Record<Kind, number> = { user: 52, assistant: 84, thinking: 30, tool: 34, file: 34, permission: 150, turn: 24, notice: 24 };
-
-function Row({ item, prev }: { item: StreamItem; prev: StreamItem | undefined }) {
-  switch (item.kind) {
-    case "user":
-      return <UserRow item={item} />;
-    case "assistant":
-      return <AssistantRow item={item} showMark={prev?.kind !== "assistant"} />;
-    case "thinking":
-      return <ThinkingRow item={item} />;
-    case "tool":
-      return <ToolRow item={item} />;
-    case "file":
-      return <FileRow item={item} />;
-    case "permission":
-      return <PermissionRow item={item} />;
-    case "turn":
-      return <TurnRow item={item} />;
-    case "notice":
-      return <NoticeRow item={item} />;
-  }
+export interface StreamBodyHandle {
+  /** Scroll the top-level item `key` into view, then center `targetKey` (a nested block) once
+   *  it has laid out. Leaves "follow the newest item" mode. */
+  scrollToItem: (key: string, targetKey?: string) => void;
 }
 
 export interface StreamBodyProps {
@@ -67,10 +35,17 @@ export interface StreamBodyProps {
   busy?: boolean;
   /** Rendered after the last row (e.g. a "working" line); scrolls with the list. */
   footer?: ReactNode;
+  /** Changes when the column's horizontal position changes (a side rail opens): the centered
+   *  column glides to its new place instead of jumping. */
+  layoutKey?: string | number | boolean;
   className?: string;
+  ref?: Ref<StreamBodyHandle>;
 }
 
-export function StreamBody({ items, compact = false, empty, busy, footer, className }: StreamBodyProps) {
+const escapeAttr = (v: string) => (typeof CSS !== "undefined" && CSS.escape ? CSS.escape(v) : v.replace(/["\\]/g, "\\$&"));
+
+export function StreamBody({ items, compact = false, empty, busy, footer, layoutKey, className, ref }: StreamBodyProps) {
+  const reduced = useReducedMotionPref();
   const scrollRef = useRef<HTMLDivElement>(null);
   const stuckRef = useRef(true);
   const [stuck, setStuck] = useState(true);
@@ -133,6 +108,28 @@ export function StreamBody({ items, compact = false, empty, busy, footer, classN
     }
   }, [unstick]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToItem: (key, targetKey) => {
+        const index = items.findIndex((it) => it.key === key);
+        const el = scrollRef.current;
+        if (index < 0 || !el) return;
+        stuckRef.current = false;
+        setStuck(false);
+        setAwayCount((c) => c ?? count);
+        virtualizer.scrollToIndex(index, { align: "start" });
+        const selector = `[data-subagent-key="${escapeAttr(targetKey ?? key)}"]`;
+        // Wait for the opened blocks to lay out (Collapse springs), then center the target.
+        window.setTimeout(() => {
+          const target = scrollRef.current?.querySelector(selector);
+          target?.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+        }, reduced ? 30 : Math.round(duration.standard * 1000) + 80);
+      },
+    }),
+    [count, items, reduced, virtualizer],
+  );
+
   const jump = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -165,7 +162,13 @@ export function StreamBody({ items, compact = false, empty, busy, footer, classN
           <div className="grid h-full place-items-center px-6">{empty}</div>
         ) : (
           <div className={cn(compact ? "px-4" : "px-8")}>
-            <div className={cn("relative w-full", !compact && "mx-auto max-w-[760px]")} style={{ height: total }}>
+            <motion.div
+              layout={layoutKey === undefined ? false : "position"}
+              layoutDependency={layoutKey}
+              transition={spring.layout}
+              className={cn("relative w-full", !compact && "mx-auto max-w-[760px]")}
+              style={{ height: total }}
+            >
               <div className="absolute top-0 left-0 w-full" style={{ transform: `translateY(${rows[0]?.start ?? 0}px)` }}>
                 {rows.map((v) => {
                   const item = items[v.index];
@@ -187,13 +190,13 @@ export function StreamBody({ items, compact = false, empty, busy, footer, classN
                         onAnimationComplete={enter ? () => animated.add(item.key) : undefined}
                         style={item.kind === "user" ? { originX: 1, originY: 1 } : undefined}
                       >
-                        <Row item={item} prev={prev} />
+                        <ItemRow item={item} prev={prev} />
                       </motion.div>
                     </div>
                   );
                 })}
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
         <AnimatePresence>{footer}</AnimatePresence>
