@@ -30,9 +30,11 @@ from typing import Literal
 
 from aistudio.contracts.transport import CompletedProcess
 
-# asyncio StreamReader buffer limit; lines longer than this are still read (in chunks).
-STDOUT_LIMIT = 16 * 1024 * 1024
-STDERR_KEEP_BYTES = 1024 * 1024
+# asyncio StreamReader buffer limit. Lines longer than this are still returned whole: readline()
+# collects them chunk by chunk, so the limit only bounds a single buffered chunk.
+STDOUT_LIMIT = 64 * 1024 * 1024
+# stderr is drained continuously; only the tail is kept (adapters read it after exit).
+STDERR_KEEP_BYTES = 256 * 1024
 _STDERR_DRAIN_GRACE = 2.0
 
 # --------------------------------------------------------------------------- environment
@@ -193,8 +195,9 @@ def _signal_group(proc: asyncio.subprocess.Process, sig: signal.Signals) -> None
 class LocalProcess:
     """:class:`aistudio.contracts.transport.Process` backed by an asyncio subprocess."""
 
-    def __init__(self, proc: asyncio.subprocess.Process) -> None:
+    def __init__(self, proc: asyncio.subprocess.Process, *, stderr_keep: int = STDERR_KEEP_BYTES) -> None:
         self._proc = proc
+        self._stderr_keep = max(1, stderr_keep)
         self._stderr = bytearray()
         self._read_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
@@ -218,7 +221,7 @@ class LocalProcess:
             if not chunk:
                 return
             self._stderr.extend(chunk)
-            overflow = len(self._stderr) - STDERR_KEEP_BYTES
+            overflow = len(self._stderr) - self._stderr_keep
             if overflow > 0:
                 del self._stderr[:overflow]
 
@@ -300,8 +303,16 @@ class LocalTransport:
     kind: Literal["local", "ssh"] = "local"
     host_id: str | None = None
 
-    def __init__(self, env: Mapping[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        env: Mapping[str, str] | None = None,
+        *,
+        stdout_limit: int = STDOUT_LIMIT,
+        stderr_keep: int = STDERR_KEEP_BYTES,
+    ) -> None:
         self._env = dict(env) if env is not None else scrubbed_env()
+        self._stdout_limit = stdout_limit
+        self._stderr_keep = stderr_keep
 
     @property
     def env(self) -> dict[str, str]:
@@ -320,10 +331,10 @@ class LocalTransport:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            limit=STDOUT_LIMIT,
+            limit=self._stdout_limit,
             start_new_session=True,
         )
-        return LocalProcess(proc)
+        return LocalProcess(proc, stderr_keep=self._stderr_keep)
 
     async def run(
         self,
@@ -347,7 +358,7 @@ class LocalTransport:
                 stdin=asyncio.subprocess.PIPE if input is not None else asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                limit=STDOUT_LIMIT,
+                limit=self._stdout_limit,
                 start_new_session=True,
             )
         except (FileNotFoundError, PermissionError, NotADirectoryError) as e:

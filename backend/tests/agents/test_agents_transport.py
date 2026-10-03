@@ -50,6 +50,43 @@ async def test_spawn_readline_write_and_large_lines() -> None:
         await proc.write(b"late\n")
 
 
+async def test_lines_longer_than_the_stream_limit_are_read_whole() -> None:
+    # A 64 KiB buffer limit forces the chunked path (LimitOverrunError) for the 3 MiB line.
+    t = LocalTransport(env=scrubbed_env(augment_path=False), stdout_limit=64 * 1024)
+    script = (
+        "import sys; sys.stdout.write('a' * (3 * 1024 * 1024) + '\\n'); "
+        "sys.stdout.write('short\\n'); sys.stdout.write('tail-without-newline')"
+    )
+    proc = await t.spawn([PY, "-c", script])
+    big = await proc.readline()
+    assert len(big) == 3 * 1024 * 1024 + 1 and big.endswith(b"a\n") and big.count(b"\n") == 1
+    assert await proc.readline() == b"short\n"
+    assert await proc.readline() == b"tail-without-newline"
+    assert await proc.readline() == b""
+    assert await proc.wait() == 0
+
+
+async def test_stderr_flood_is_drained_without_deadlock() -> None:
+    # The child writes 4 MiB to stderr (far beyond a pipe buffer) before its only stdout line.
+    # Nobody reads stderr until exit: without the background drain the child would block forever.
+    keep = 256 * 1024
+    t = LocalTransport(env=scrubbed_env(augment_path=False), stderr_keep=keep)
+    script = (
+        "import sys\n"
+        "for i in range(4096):\n"
+        "    sys.stderr.write('e' * 1023 + '\\n')\n"
+        "sys.stderr.write('LAST-STDERR-LINE\\n'); sys.stderr.flush()\n"
+        "print('done', flush=True)\n"
+    )
+    proc = await t.spawn([PY, "-c", script])
+    assert await asyncio.wait_for(proc.readline(), timeout=10) == b"done\n"
+    assert await asyncio.wait_for(proc.wait(), timeout=10) == 0
+    err = await proc.read_stderr()
+    assert len(err) == keep  # bounded: only the tail is kept
+    assert err.endswith(b"LAST-STDERR-LINE\n")
+    assert await proc.read_stderr() == err  # stable after exit
+
+
 async def test_partial_last_line_and_cwd(tmp_path: Path) -> None:
     t = transport()
     proc = await t.spawn([PY, "-c", "import os,sys; sys.stdout.write(os.getcwd())"], cwd=str(tmp_path))
